@@ -66,6 +66,16 @@ export const sfx = {
     tone({ from: 660, to: 1046, dur: 0.11, type: 'square', volume: 0.1 });
     tone({ from: 990, to: 1568, dur: 0.1, type: 'triangle', start: 0.06, volume: 0.07 });
   },
+  /** habilidade ativada: subida brilhante de duas notas */
+  ability() {
+    tone({ from: 523, to: 1046, dur: 0.16, type: 'triangle', volume: 0.1 });
+    tone({ from: 1046, to: 1568, dur: 0.18, type: 'sine', start: 0.1, volume: 0.08 });
+  },
+  /** auto-corte com bônus: raspão descendente */
+  cut() {
+    tone({ from: 1320, to: 320, dur: 0.2, type: 'sawtooth', volume: 0.11 });
+    tone({ from: 880, dur: 0.07, type: 'square', start: 0.02, volume: 0.06 });
+  },
   /** bateu: queda grave */
   die() {
     tone({ from: 340, to: 70, dur: 0.55, type: 'sawtooth', volume: 0.12 });

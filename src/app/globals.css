@@ -110,6 +110,34 @@ body {
   transition: width 0.25s ease;
 }
 
+/* barra de carga da habilidade — 5 unidades */
+.card.charge .pips {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.card.charge .pips i {
+  flex: 1 1 0;
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card.charge .pips i.on {
+  background: linear-gradient(90deg, var(--amber), #fde68a);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
+}
+
+.card.charge.active {
+  border-color: rgba(251, 191, 36, 0.55);
+}
+
+.card.charge.active .label {
+  color: var(--amber);
+}
+
 /* Tabuleiro */
 .board-wrap {
   position: relative;
@@ -137,6 +165,15 @@ body {
   box-shadow:
     0 0 0 1px rgba(253, 230, 138, 0.7),
     0 0 30px rgba(251, 191, 36, 0.55),
+    0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* habilidade ativa: moldura dourada mais intensa que o turbo do espaço */
+.board-wrap.is-ability {
+  background: linear-gradient(135deg, #fde68a, #fbbf24, #f59e0b);
+  box-shadow:
+    0 0 0 2px rgba(253, 230, 138, 0.9),
+    0 0 46px rgba(251, 191, 36, 0.8),
     0 20px 50px rgba(0, 0, 0, 0.45);
 }
 

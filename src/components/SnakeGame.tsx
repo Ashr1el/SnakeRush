@@ -17,6 +17,10 @@ const BASE_SPEED = 130; // ms por passo
 const MIN_SPEED = 70; // velocidade máxima
 const SPEED_STEP = 3; // ms mais rápido a cada comida
 const BOOST_FACTOR = 0.5; // turbo da barra de espaço
+const ABILITY_THRESHOLD = 5; // frutas para encher a barra de carga
+const ABILITY_DURATION_MS = 2000; // duração do modo especial (2 s)
+const ABILITY_SPEED_FACTOR = 0.5; // intervalo ×0.5 durante a habilidade (D2)
+const CUT_BONUS_PER_SEGMENT = 20; // bônus por segmento cortado (200% de 10)
 const BEST_KEY = 'snakeBest';
 
 const UP: Dir = { x: 0, y: -1 };
@@ -51,6 +55,9 @@ interface Game {
   speed: number;
   acc: number;
   deathAt: number;
+  foodCount: number; // carga da barra (0 a ABILITY_THRESHOLD)
+  isAbilityActive: boolean; // modo especial de turbo + auto-corte
+  abilityTimer: number; // ms restantes da habilidade
 }
 
 function placeFood(g: Game) {
@@ -79,12 +86,20 @@ function createGame(): Game {
     speed: BASE_SPEED,
     acc: 0,
     deathAt: 0,
+    foodCount: 0,
+    isAbilityActive: false,
+    abilityTimer: 0,
   };
   placeFood(g);
   return g;
 }
 
-function step(g: Game, onEat: (score: number, speed: number) => void): boolean {
+function step(
+  g: Game,
+  onEat: (score: number, speed: number) => void,
+  onCut: (score: number, segments: number) => void,
+  onAbility: () => void
+): boolean {
   // consome a fila de direções ignorando inversões ilegais
   while (g.queue.length) {
     const d = g.queue.shift()!;
@@ -103,9 +118,23 @@ function step(g: Game, onEat: (score: number, speed: number) => void): boolean {
 
   const eat = head.x === g.food.x && head.y === g.food.y;
   const body = eat ? g.snake : g.snake.slice(0, -1);
-  if (body.some((s) => s.x === head.x && s.y === head.y)) {
-    g.deathAt = performance.now();
-    return false;
+  const hitIndex = body.findIndex((s) => s.x === head.x && s.y === head.y);
+
+  if (hitIndex !== -1) {
+    // habilidade inativa: regra padrão de derrota
+    if (!g.isAbilityActive) {
+      g.deathAt = performance.now();
+      return false;
+    }
+
+    // D6: a habilidade vale até o fim deste quadro
+    // auto-corte: mantém a cabeça e o trecho anterior ao gomo atingido
+    const cutSegments = g.snake.length - hitIndex;
+    g.prev = g.snake;
+    g.snake = [head, ...g.snake.slice(0, hitIndex)];
+    g.score += cutSegments * CUT_BONUS_PER_SEGMENT; // D4: 20 pts por segmento
+    onCut(g.score, cutSegments);
+    return true;
   }
 
   g.prev = g.snake;
@@ -114,10 +143,30 @@ function step(g: Game, onEat: (score: number, speed: number) => void): boolean {
   if (eat) {
     g.score += 10;
     g.speed = Math.max(MIN_SPEED, g.speed - SPEED_STEP);
+
+    if (g.isAbilityActive) {
+      // durante a habilidade a barra só acompanha o próximo ciclo
+      g.foodCount = Math.min(g.foodCount + 1, ABILITY_THRESHOLD);
+    } else if (g.foodCount < ABILITY_THRESHOLD) {
+      g.foodCount += 1;
+    } else {
+      // D1: barra cheia na 5ª fruta; a recolha seguinte ativa e zera o ciclo
+      g.foodCount = 0;
+      g.isAbilityActive = true;
+      g.abilityTimer = ABILITY_DURATION_MS;
+      onAbility();
+    }
+
     placeFood(g);
     onEat(g.score, g.speed);
   }
   return true;
+}
+
+function stepInterval(g: Game, boosting: boolean): number {
+  // D3: a habilidade não acumula com o turbo do espaço
+  if (g.isAbilityActive) return g.speed * ABILITY_SPEED_FACTOR;
+  return boosting ? g.speed * BOOST_FACTOR : g.speed;
 }
 
 function roundedRect(
@@ -238,6 +287,8 @@ export default function SnakeGame() {
   const statusRef = useRef<Status>('idle');
   const boostRef = useRef(false);
   const bestRef = useRef(0);
+  const chargeRef = useRef(0);
+  const abilityRef = useRef(false);
 
   const [status, setStatus] = useState<Status>('idle');
   const [score, setScore] = useState(0);
@@ -245,6 +296,8 @@ export default function SnakeGame() {
   const [boost, setBoost] = useState(false);
   const [speed, setSpeed] = useState(BASE_SPEED);
   const [muted, setMuted] = useState(false);
+  const [charge, setCharge] = useState(0);
+  const [ability, setAbility] = useState(false);
 
   // Hidratação: recorde e mudo vêm do localStorage apenas depois da montagem,
   // para o HTML gerado no servidor bater com o primeiro render do cliente.
@@ -261,18 +314,50 @@ export default function SnakeGame() {
     setMuted(sfx.isMuted());
   }, []);
 
-  const onEat = useCallback((newScore: number, newSpeed: number) => {
-    sfx.eat();
-    setScore(newScore);
-    setSpeed(newSpeed);
-    if (newScore > bestRef.current) {
-      bestRef.current = newScore;
-      setBest(newScore);
-      try {
-        localStorage.setItem(BEST_KEY, String(newScore));
-      } catch {
-        /* storage indisponível */
-      }
+  const commitBest = useCallback((newScore: number) => {
+    if (newScore <= bestRef.current) return;
+    bestRef.current = newScore;
+    setBest(newScore);
+    try {
+      localStorage.setItem(BEST_KEY, String(newScore));
+    } catch {
+      /* storage indisponível */
+    }
+  }, []);
+
+  const onEat = useCallback(
+    (newScore: number, newSpeed: number) => {
+      sfx.eat();
+      setScore(newScore);
+      setSpeed(newSpeed);
+      commitBest(newScore);
+    },
+    [commitBest]
+  );
+
+  // auto-corte com bônus: o placar já chega somado do step()
+  const onCut = useCallback(
+    (newScore: number) => {
+      sfx.cut();
+      setScore(newScore);
+      commitBest(newScore);
+    },
+    [commitBest]
+  );
+
+  const onAbility = useCallback(() => {
+    sfx.ability();
+  }, []);
+
+  // espelha no React só o que a UI mostra (barra de carga e modo especial)
+  const syncMeta = useCallback((g: Game) => {
+    if (g.foodCount !== chargeRef.current) {
+      chargeRef.current = g.foodCount;
+      setCharge(g.foodCount);
+    }
+    if (g.isAbilityActive !== abilityRef.current) {
+      abilityRef.current = g.isAbilityActive;
+      setAbility(g.isAbilityActive);
     }
   }, []);
 
@@ -281,6 +366,10 @@ export default function SnakeGame() {
     gameRef.current = createGame();
     boostRef.current = false;
     setBoost(false);
+    chargeRef.current = 0;
+    setCharge(0);
+    abilityRef.current = false;
+    setAbility(false);
     setScore(0);
     setSpeed(BASE_SPEED);
     statusRef.current = 'running';
@@ -316,6 +405,10 @@ export default function SnakeGame() {
     gameRef.current = createGame();
     boostRef.current = false;
     setBoost(false);
+    chargeRef.current = 0;
+    setCharge(0);
+    abilityRef.current = false;
+    setAbility(false);
     setScore(0);
     setSpeed(BASE_SPEED);
     statusRef.current = 'idle';
@@ -353,31 +446,43 @@ export default function SnakeGame() {
       let t = 1;
 
       if (statusRef.current === 'running') {
+        // D6: a habilidade só expira no começo do quadro seguinte
+        if (g.isAbilityActive) {
+          g.abilityTimer -= dt;
+          if (g.abilityTimer <= 0) {
+            g.abilityTimer = 0;
+            g.isAbilityActive = false;
+          }
+        }
+
         g.acc += dt;
-        let interval = boostRef.current ? g.speed * BOOST_FACTOR : g.speed;
+        let interval = stepInterval(g, boostRef.current);
         let guard = 0;
         while (g.acc >= interval && guard < 4) {
           g.acc -= interval;
           guard++;
-          if (!step(g, onEat)) {
+          if (!step(g, onEat, onCut, onAbility)) {
             statusRef.current = 'over';
             setStatus('over');
             sfx.die();
             boostRef.current = false;
             setBoost(false);
+            g.isAbilityActive = false;
+            g.abilityTimer = 0;
             break;
           }
-          interval = boostRef.current ? g.speed * BOOST_FACTOR : g.speed;
+          interval = stepInterval(g, boostRef.current);
         }
         if (statusRef.current === 'running') t = Math.min(g.acc / interval, 1);
       }
 
+      syncMeta(g);
       draw(ctx, g, t, now);
     };
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [onEat]);
+  }, [onEat, onCut, onAbility, syncMeta]);
 
   // teclado: setas/WASD movem, barra de espaço dá turbo (ou inicia/reinicia)
   useEffect(() => {
@@ -432,6 +537,8 @@ export default function SnakeGame() {
 
   const pct = Math.round(((BASE_SPEED - speed) / (BASE_SPEED - MIN_SPEED)) * 100);
   const newRecord = status === 'over' && score > 0 && score >= best;
+  // durante a habilidade a barra aparece cheia; fora dela mostra a carga do próximo ciclo
+  const pips = ability ? ABILITY_THRESHOLD : charge;
 
   return (
     <div className="app">
@@ -452,6 +559,21 @@ export default function SnakeGame() {
             <i style={{ width: `${pct}%` }} />
           </div>
         </div>
+        <div
+          className={`card charge${ability ? ' active' : ''}`}
+          role="progressbar"
+          aria-label="Carga da habilidade"
+          aria-valuemin={0}
+          aria-valuemax={ABILITY_THRESHOLD}
+          aria-valuenow={pips}
+        >
+          <span className="label">{ability ? 'Habilidade' : 'Carga'}</span>
+          <div className="pips" aria-hidden="true">
+            {Array.from({ length: ABILITY_THRESHOLD }, (_, i) => (
+              <i key={i} className={i < pips ? 'on' : undefined} />
+            ))}
+          </div>
+        </div>
         <button
           className="mute-btn"
           onClick={toggleMute}
@@ -462,7 +584,7 @@ export default function SnakeGame() {
         </button>
       </div>
 
-      <div className={`board-wrap${boost ? ' is-turbo' : ''}`}>
+      <div className={`board-wrap${ability ? ' is-ability' : boost ? ' is-turbo' : ''}`}>
         <canvas ref={canvasRef} width={W} height={H} aria-label="Tabuleiro do jogo" />
 
         {status !== 'running' && (
@@ -557,8 +679,9 @@ export default function SnakeGame() {
       <p className="info">
         Controles: setas do teclado, <kbd>WASD</kbd> ou os botões abaixo. Segure{' '}
         <kbd>Espaço</kbd> para turbinar e <kbd>Esc</kbd> para pausar (com menu para resumir,
-        resetar ou sair). Coma a fruta para crescer e ganhar velocidade — sem bater nas paredes
-        nem em si mesma.
+        resetar ou sair). Coma 5 frutas para encher a barra de carga: a recolha seguinte libera 2 s
+        de turbo e permite cortar o próprio corpo — cada gomo cortado vale 20 pontos. Fora da
+        habilidade, encostar na parede ou no corpo encerra a partida.
       </p>
     </div>
   );
