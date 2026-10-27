@@ -16,9 +16,9 @@
 
 **2026-10-27 — revisão da mecânica de recursos (D9):**
 
-- A cada 5 recursos gerados, 4 são **vermelhos** (1 célula, 10 pts, +1 gomo) e 1 é **laranja** (bloco **2×2**, 40 pts, +4 gomos).
+- A cada 5 recursos gerados, 4 são **vermelhos** (1 célula, 10 pts, +1 gomo) e 1 é **laranja** (bloco **2×2**, 40 pts, +3 gomos).
 - **Só o laranja** carrega a barra (1 por bloco); 5 laranjas ativam a habilidade **na hora**.
-- Habilidade dura **4 s** (dobro) e o crescimento durante ela é **×3** (vermelho +3, laranja +12).
+- Habilidade dura **4 s** (dobro) e o crescimento durante ela é **×3** (vermelho +3, laranja +9).
 - Revisão refletida em `engine.ts`, `engine.test.ts`, `DOSSIER.md`, `README.md` e `docs/arquitetura.md`.
 
 `tsc --noEmit`, `next build` e `node --test` verdes; `out/` contém `index.html`, `404.html`, `manifest.webmanifest`, `sw.js`, `offline.html` e os ícones.
@@ -259,7 +259,7 @@ A spec do `Roadmap` tem pontos que se contradizem ou não fecham. Proposta padr�
 | **D6** | Habilidade expira exatamente no passo da colisão | **Habilidade vale até o fim do quadro**; expira só no início do quadro seguinte |
 | **D7** | PWA (E3) e Capacitor (E4) são opções concorrentes? | **Ambos**, em ondas separadas: PWA primeiro (sem loja), nativo depois |
 | **D8** | ID do app / nome nas lojas | `com.exemplo.snakerush` provisório — definir antes de E4-02 |
-| **D9** | Recurso especial, valor e efeito durante a habilidade | **4 vermelhos : 1 laranja** (bloco 2×2). Vermelho 10 pts/+1 gomo; laranja 40 pts/+4 gomos. **Só o laranja** carrega a barra; 5 ativam a habilidade, que dura **4 s** e dá **crescimento ×3** (vermelho +3, laranja +12) |
+| **D9** | Recurso especial, valor e efeito durante a habilidade | **4 vermelhos : 1 laranja** (bloco 2×2). Vermelho 10 pts/+1 gomo; laranja 40 pts/+3 gomos. **Só o laranja** carrega a barra; 5 ativam a habilidade, que dura **4 s** e dá **crescimento ×3** (vermelho +3, laranja +9) |
 
 ## Dependências críticas
 

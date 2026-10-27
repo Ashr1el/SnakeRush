@@ -220,7 +220,7 @@ Regras e ritmo em `src/game/engine.ts`; `BEST_KEY` fica no componente.
 | `ABILITY_GROWTH_FACTOR` | `3` | Crescimento ×3 durante a habilidade |
 | `CUT_BONUS_PER_SEGMENT` | `20` | Bônus por segmento cortado (200% de 10) |
 | `POINTS_NORMAL` / `POINTS_SPECIAL` | `10` / `40` | Pontos por recurso vermelho / bloco laranja |
-| `GROWTH_NORMAL` / `GROWTH_SPECIAL` | `1` / `4` | Gomos por recurso vermelho / bloco laranja |
+| `GROWTH_NORMAL` / `GROWTH_SPECIAL` | `1` / `3` | Gomos por recurso vermelho / bloco laranja |
 | `BEST_KEY` | `"snakeBest"` | Chave do recorde no `localStorage` (componente) |
 
 Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_STEP`, `BOOST_FACTOR`.
@@ -231,7 +231,7 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 
 - A cada **5 recursos gerados**, 4 são **vermelhos** (1 célula) e 1 é **laranja** (bloco 2×2, 4 células) — em ciclo: 4 vermelhos, 1 laranja, 4 vermelhos, 1 laranja…
 - **Vermelho:** 10 pontos, +1 gomo, −3 ms no intervalo entre passos.
-- **Laranja:** 40 pontos, +4 gomos, −3 ms no intervalo. Encostar em **qualquer** das 4 células coleta o bloco inteiro.
+- **Laranja:** 40 pontos, +3 gomos, −3 ms no intervalo. Encostar em **qualquer** das 4 células coleta o bloco inteiro.
 - O recurso sempre nasce em área livre (`placeFood` sorteia entre as células — ou blocos 2×2 — livres). Tabuleiro sem espaço para 2×2 → o laranja cai para 1 célula livre.
 - Bater na parede encerra a partida — **não há wrap** de bordas. Colidir com o próprio corpo também encerra, **exceto** durante a habilidade (auto-corte).
 - O recorde é atualizado durante a partida e exibido no HUD.
@@ -245,7 +245,7 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 | Ativação | Ao coletar o **5º laranja** a habilidade ativa na hora e `charge` volta a 0 |
 | Duração | `4000` ms de jogo; a pausa **não** consome o tempo |
 | Velocidade | Intervalo entre passos `×0.5` (`ABILITY_SPEED_FACTOR`); **não** acumula com o turbo do `Espaço` |
-| Crescimento | Durante a habilidade, **crescimento ×3**: vermelho +3 gomos, laranja +12 (D9) |
+| Crescimento | Durante a habilidade, **crescimento ×3**: vermelho +3 gomos, laranja +9 (D9) |
 | Expiração | Só no início do quadro seguinte (`D6`) — vale até o fim do quadro corrente |
 | Emenda | Se a barra chegar a 5 durante a habilidade, a próxima começa assim que a atual terminar (sem perder carga) |
 | Auto-corte | Colisão com o corpo durante a habilidade **não** mata: mantém a cabeça + o trecho anterior ao gomo atingido |
@@ -629,7 +629,7 @@ npm test
 | Bloco laranja | 4 células em 2×2, dentro do tabuleiro e fora da cobra; fallback de 1 célula |
 | Barra e ativação | vermelho não carrega; 5º laranja ativa na hora e zera a barra |
 | Pontos | vermelho 10, laranja 40 |
-| Crescimento | vermelho +1, laranja +4; durante a habilidade ×3 (3 e 12) |
+| Crescimento | vermelho +1, laranja +3; durante a habilidade ×3 (3 e 9) |
 | Aceleração | `speed` cai por recurso e respeita `MIN_SPEED` |
 | `stepInterval` | turbo ×0.5 e habilidade ×0.5 **sem acúmulo** (D3) |
 | Morte | parede e corpo sem habilidade encerram a partida |

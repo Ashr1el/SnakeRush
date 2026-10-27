@@ -30,7 +30,7 @@ export const CUT_BONUS_PER_SEGMENT = 20; // bônus por segmento cortado (200% de
 export const POINTS_NORMAL = 10; // pontos por recurso vermelho
 export const POINTS_SPECIAL = 40; // pontos por bloco laranja (4 células × 10)
 export const GROWTH_NORMAL = 1; // gomos por recurso vermelho
-export const GROWTH_SPECIAL = 4; // gomos por bloco laranja (4 células)
+export const GROWTH_SPECIAL = 3; // gomos por bloco laranja (ocupa 4 células)
 
 export interface Game {
   snake: Cell[];
@@ -135,7 +135,7 @@ export function createGame(): Game {
 /** Quantos gomos a cobra ganha ao comer o recurso atual. */
 function growthFor(g: Game): number {
   const base = g.food.kind === 'special' ? GROWTH_SPECIAL : GROWTH_NORMAL;
-  // D9: durante a habilidade o crescimento é 3× o normal (vermelho 3, laranja 12)
+  // D9: durante a habilidade o crescimento é 3× o normal (vermelho 3, laranja 9)
   return g.isAbilityActive ? base * ABILITY_GROWTH_FACTOR : base;
 }
 

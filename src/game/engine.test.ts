@@ -165,7 +165,7 @@ test('pontuação: vermelho 10, laranja 40', () => {
   assert.equal(g.score, POINTS_NORMAL + POINTS_SPECIAL);
 });
 
-test('crescimento fora da habilidade: vermelho +1, laranja +4', () => {
+test('crescimento fora da habilidade: vermelho +1, laranja +3', () => {
   const g = createGame();
   assert.equal(g.snake.length, 3);
 
@@ -176,7 +176,7 @@ test('crescimento fora da habilidade: vermelho +1, laranja +4', () => {
   assert.equal(g.snake.length, 3 + GROWTH_NORMAL + GROWTH_SPECIAL);
 
   // comeu as 4 células do bloco de uma vez (a cabeça entra em uma delas)
-  assert.equal(GROWTH_SPECIAL, 4);
+  assert.equal(GROWTH_SPECIAL, 3);
 });
 
 test('bloco laranja é coletado ao encostar em qualquer das 4 células', () => {
@@ -198,7 +198,7 @@ test('bloco laranja é coletado ao encostar em qualquer das 4 células', () => {
   assert.equal(g.charge, 1);
 });
 
-test('durante a habilidade o crescimento é 3× (vermelho 3, laranja 12)', () => {
+test('durante a habilidade o crescimento é 3× (vermelho 3, laranja 9)', () => {
   const g = createGame();
   g.isAbilityActive = true;
   g.abilityTimer = ABILITY_DURATION_MS;

@@ -156,7 +156,7 @@ Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`,
 | Recurso | Frequência | Células | Pontos | Gomos | Barra |
 | --- | --- | --- | --- | --- | --- |
 | Vermelho | 4 de cada 5 | 1 | 10 | +1 | não conta |
-| Laranja | 1 de cada 5 | 4 (bloco 2×2) | 40 | +4 | +1 |
+| Laranja | 1 de cada 5 | 4 (bloco 2×2) | 40 | +3 | +1 |
 
 `placeFood` decide o tipo por `spawns % 5 === 4` e, para o laranja, sorteia um canto livre onde caibam as 4 células. Se não houver nenhum bloco 2×2 livre, o laranja cai para uma única célula livre (o `kind` continua `special`).
 
@@ -165,9 +165,9 @@ Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`,
 | Situação | Efeito |
 | --- | --- |
 | Vermelho coletado | +10 pts, +1 gomo; **não** mexe na barra |
-| Laranja coletado | +40 pts, +4 gomos, `charge += 1` |
+| Laranja coletado | +40 pts, +3 gomos, `charge += 1` |
 | 5º laranja | ativa a habilidade **na hora** (`charge = 0`, `abilityTimer = 4000`) |
-| Durante a habilidade | intervalo ×0.5; **crescimento ×3** (vermelho +3, laranja +12); encostar no corpo corta |
+| Durante a habilidade | intervalo ×0.5; **crescimento ×3** (vermelho +3, laranja +9); encostar no corpo corta |
 | Barra cheia durante o efeito | a próxima habilidade **emenda** quando a atual terminar |
 | Fim dos 4 s | volta ao normal; morrer sem habilidade é derrota |
 
@@ -250,7 +250,7 @@ Regras e ritmo em `src/game/engine.ts`; chave de persistência no componente.
 | `ABILITY_GROWTH_FACTOR` | `3` | Crescimento ×3 durante a habilidade |
 | `CUT_BONUS_PER_SEGMENT` | `20` | Pontos por gomo cortado |
 | `POINTS_NORMAL` / `POINTS_SPECIAL` | `10` / `40` | Pontos por recurso vermelho / bloco laranja |
-| `GROWTH_NORMAL` / `GROWTH_SPECIAL` | `1` / `4` | Gomos por recurso vermelho / bloco laranja |
+| `GROWTH_NORMAL` / `GROWTH_SPECIAL` | `1` / `3` | Gomos por recurso vermelho / bloco laranja |
 | `BEST_KEY` | `snakeBest` | Chave do recorde no `localStorage` |
 
 ---
