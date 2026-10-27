@@ -1,6 +1,6 @@
 # 🐍 Jogo da Cobrinha (SnakeRush)
 
-Jogo da cobrinha feito em **React + TypeScript + Vite**, com renderização em canvas, movimento suave entre células, efeitos sonoros gerados por código (sem arquivos de áudio) e suporte a teclado e controles na tela.
+Jogo da cobrinha feito em **React + TypeScript + Next.js (App Router)**, com renderização em canvas, movimento suave entre células, efeitos sonoros gerados por código (sem arquivos de áudio) e suporte a teclado e controles na tela.
 
 > Repositório: https://github.com/Ashr1el/SnakeRush — branch de desenvolvimento: `developer`
 
@@ -33,35 +33,35 @@ Jogo da cobrinha feito em **React + TypeScript + Vite**, com renderização em c
 - Efeitos sonoros sintetizados com Web Audio API (comer, morrer, iniciar, pausar, clicar) e botão de mudo persistido.
 - Recorde salvo no `localStorage`.
 - Layout responsivo (desktop e mobile) com d-pad na tela.
+- Metadados de página (`title`, `description`, `lang="pt-BR"`, `themeColor`) via Metadata API do Next.
 
 ## Stack
 
 | Item | Faixa (`package.json`) | Instalado |
 | --- | --- | --- |
-| React / React DOM | `^18.3.1` | 18.3.1 |
+| Next.js | `^16.4.3` | 16.4.3 |
+| React / React DOM | `^19.3.1` | 19.3.1 |
 | TypeScript | `^5.6.3` | 5.9.3 |
-| Vite | `^5.4.11` | 5.4.21 |
-| @vitejs/plugin-react | `^4.3.4` | 4.7.0 |
+| @types/node | `^24.10.1` | 24.19.2 |
 
-Versões exatas do que está instalado ficam travadas em `package-lock.json`.
-
-Sem bibliotecas de UI, de estado ou de áudio — apenas React e APIs do navegador (Canvas 2D e Web Audio).
+Sem bibliotecas de UI, de estado ou de áudio — apenas React, Next e APIs do navegador (Canvas 2D e Web Audio). Versões exatas do que está instalado ficam travadas em `package-lock.json`.
 
 ## Requisitos
 
-- **Node.js 18+** (exigência do Vite 5) e npm.
+- **Node.js 20.9+** (exigência do Next.js 16) e npm.
 
 ## Como rodar
 
 ```bash
 npm install        # instala as dependências
 
-npm run dev        # servidor de desenvolvimento (http://localhost:5173)
-npm run build      # typecheck (tsc --noEmit) + build de produção em dist/
-npm run preview    # serve o build de dist/ para conferência
+npm run dev        # servidor de desenvolvimento (http://localhost:3000)
+npm run build      # build de produção em .next/ (inclui o typecheck)
+npm start          # serve o build de produção em http://localhost:3000
+npm run typecheck  # apenas o typecheck (tsc --noEmit)
 ```
 
-O `npm run build` falha de propósito se houver qualquer erro de TypeScript — o typecheck faz parte do build.
+O `next build` falha se houver erro de TypeScript, então o build já valida os tipos.
 
 ## Controles
 
@@ -84,33 +84,41 @@ Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticam
 - Bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
 - O recorde é atualizado durante a partida e exibido no HUD junto da barra de velocidade.
 
-Valores ajustáveis ficam no topo de `src/SnakeGame.tsx` (ver [docs/arquitetura.md](docs/arquitetura.md#constantes-de-ajuste)).
+Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/arquitetura.md](docs/arquitetura.md#constantes-de-ajuste)).
 
 ## Estrutura do projeto
 
 ```
 .
-├── index.html              # shell do Vite (div#root + /src/main.tsx)
+├── next.config.ts          # configuração do Next (React Strict Mode)
 ├── package.json            # scripts e dependências
-├── tsconfig.json           # TypeScript estrito (strict, noUnused*, jsx react-jsx)
-├── vite.config.ts          # plugin React
+├── tsconfig.json           # TypeScript estrito + alias @/* → src/*
+├── public/
+│   └── snake.html          # versão legada (servida em /snake.html, fora do app)
 ├── src/
-│   ├── main.tsx            # bootstrap React (StrictMode + createRoot)
-│   ├── SnakeGame.tsx       # componente principal: loop, regras, render, HUD e overlays
-│   ├── sound.ts            # efeitos sonoros via Web Audio API (com mute persistido)
-│   └── styles.css          # tema, HUD, tabuleiro, overlays, d-pad e responsividade
+│   ├── app/
+│   │   ├── layout.tsx      # <html>/<body>, metadata e import do CSS global
+│   │   ├── page.tsx        # rota "/" — apenas monta o componente do jogo
+│   │   └── globals.css     # tema, HUD, tabuleiro, overlays, d-pad e responsividade
+│   ├── components/
+│   │   └── SnakeGame.tsx   # "use client": loop, regras, render, HUD e overlays
+│   └── lib/
+│       └── sound.ts        # efeitos sonoros via Web Audio API (com mute persistido)
 ├── docs/                   # documentação técnica
 │   ├── arquitetura.md
 │   └── restauracao-e-snapshots.md
-├── snake.html              # versão legada standalone em um único HTML (vanilla JS, fora do build)
 └── .backup/                # cópia local de rollback (não versionada)
 ```
 
 ## Arquitetura em resumo
 
-O jogo não usa React para o estado da partida: `SnakeGame.tsx` mantém o estado mutável em um objeto `Game` dentro de um `useRef` e desenha no canvas a cada `requestAnimationFrame`. O React só renderiza o HUD e os overlays, atualizados por `useState` quando algo relevante muda (pontos, recorde, status, turbo). O loop usa um acumulador de tempo, então a velocidade do passo é independente do framerate da tela.
+Next.js App Router: `src/app/page.tsx` é um **server component** que só monta `<SnakeGame />`; o jogo em si é um **client component** (`'use client'`), porque depende de canvas, teclado, `requestAnimationFrame` e `localStorage`.
 
-Detalhes de modelo de dados, máquina de estados, loop, renderização e áudio estão em [docs/arquitetura.md](docs/arquitetura.md).
+O jogo não usa React para o estado da partida: `SnakeGame.tsx` mantém o estado mutável em um objeto `Game` dentro de um `useRef` e desenha no canvas a cada quadro. O React só renderiza o HUD e os overlays, atualizados por `useState` quando algo relevante muda (pontos, recorde, status, turbo). O loop usa um acumulador de tempo, então a velocidade do passo é independente do framerate da tela.
+
+Como a página é renderizada no servidor antes de hidratar no cliente, tudo que vem do `localStorage` (recorde e preferência de som) é lido em `useEffect`, depois da montagem — assim o HTML do servidor não diverge do primeiro render do cliente.
+
+Detalhes de modelo de dados, máquina de estados, loop, renderização, áudio e fronteira servidor/cliente estão em [docs/arquitetura.md](docs/arquitetura.md).
 
 ## Persistência local
 
@@ -119,20 +127,21 @@ Detalhes de modelo de dados, máquina de estados, loop, renderização e áudio 
 | `snakeBest` | Recorde de pontos |
 | `snakeMuted` | Preferência de som (`'1'` = mudo) |
 
-Ambas as leituras são protegidas: se o `localStorage` estiver indisponível (modo restrito, por exemplo), o jogo continua funcionando sem persistir.
+As leituras acontecem depois da montagem (evitando erro de hidratação) e são protegidas: se o `localStorage` estiver indisponível (modo restrito, por exemplo), o jogo continua funcionando sem persistir.
 
 ## Documentação
 
-- [docs/arquitetura.md](docs/arquitetura.md) — modelo de dados, loop, máquina de estados, renderização, áudio e pontos de extensão.
-- [docs/restauracao-e-snapshots.md](docs/restauracao-e-snapshots.md) — como voltar a uma versão anterior (git, backup local e snapshot no ai-memory).
+- [docs/arquitetura.md](docs/arquitetura.md) — modelo de dados, loop, máquina de estados, renderização, áudio, fronteira servidor/cliente e pontos de extensão.
+- [docs/restauracao-e-snapshots.md](docs/restauracao-e-snapshots.md) — como voltar a uma versão anterior (git, backup local e snapshot no ai-memory), incluindo o retorno à versão Vite.
 
 ## Versionamento e rollback
 
 - Repositório: `https://github.com/Ashr1el/SnakeRush` — branch `developer`.
-- O commit `629c0a5` marca a **versão 1** do jogo (baseline com typecheck verde).
-- Existe um snapshot de rollback local em `.backup/v1-2026-10-27/` (com `MANIFEST.sha256`) e uma cópia em texto no wiki do ai-memory.
-- Procedimento completo de restauração: [docs/restauracao-e-snapshots.md](docs/restauracao-e-snapshots.md).
+- **v1** (`629c0a5`): versão original em React + Vite.
+- **v2** (`2.0.0`): migração para Next.js — este estado.
+- A v1 continua preservada em `.backup/v1-2026-10-27/` (com `MANIFEST.sha256`), no histórico do Git e nas páginas `snapshots/2026-10-27-jogo-da-cobrinha-v1*` do ai-memory.
+- Procedimento completo de restauração (incluindo como voltar de Next para Vite): [docs/restauracao-e-snapshots.md](docs/restauracao-e-snapshots.md).
 
 ## Versão legada
 
-`snake.html` é a primeira versão do jogo, escrita em um único arquivo HTML com JavaScript puro. Ela não é usada pelo build do Vite e é mantida apenas como referência histórica — não recebe as melhorias da versão React.
+`public/snake.html` é a primeira versão do jogo, em um único arquivo HTML com JavaScript puro, acessível em `/snake.html`. Ela não faz parte do app Next e não recebe as melhorias da versão React — fica só como referência histórica.

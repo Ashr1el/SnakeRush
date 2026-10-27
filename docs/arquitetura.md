@@ -2,7 +2,7 @@
 
 Documento técnico da versão React (`src/`). Descreve o modelo de dados, o loop de jogo, a máquina de estados, a renderização em canvas, o áudio e os pontos de extensão.
 
-> Versão documentada: commit `629c0a5` (v1, 2026-10-27). Se o código mudar, revise este arquivo no mesmo commit.
+> Versão documentada: **v2.0.0 — Next.js 16 (App Router)**, migração de 2026-10-27. A v1 (React + Vite) está preservada no histórico do Git e nas páginas de snapshot.
 
 ---
 
@@ -12,11 +12,31 @@ O jogo é dividido em três camadas:
 
 | Camada | Arquivo | Responsabilidade |
 | --- | --- | --- |
-| Simulação + render | `src/SnakeGame.tsx` | Estado da partida, regras, loop e desenho no canvas |
-| Áudio | `src/sound.ts` | Síntese de efeitos com Web Audio API e preferência de mudo |
-| Apresentação | `src/styles.css` | Tema, HUD, overlays, d-pad e responsividade |
+| Simulação + render | `src/components/SnakeGame.tsx` | Estado da partida, regras, loop e desenho no canvas |
+| Áudio | `src/lib/sound.ts` | Síntese de efeitos com Web Audio API e preferência de mudo |
+| Apresentação | `src/app/globals.css` | Tema, HUD, overlays, d-pad e responsividade |
 
 Decisão central: **o estado da partida não vive no React**. Ele fica em um objeto mutável (`Game`) dentro de um `useRef`, atualizado a cada quadro e lido pelo loop de `requestAnimationFrame`. O React é usado apenas para o que precisa re-renderizar: HUD (pontos, recorde, barra de velocidade), status e overlays. Isso evita dezenas de re-renders por segundo e mantém o passo do jogo independente do framerate.
+
+---
+
+## Fronteira servidor/cliente (Next.js)
+
+O App Router renderiza tudo no servidor antes de hidratar no navegador, então o código foi dividido pela necessidade de acesso ao navegador:
+
+| Arquivo | Tipo | Por quê |
+| --- | --- | --- |
+| `src/app/layout.tsx` | server component | `<html>`/`<body>`, `metadata`, `viewport` e import do CSS global |
+| `src/app/page.tsx` | server component | Só monta `<SnakeGame />` |
+| `src/components/SnakeGame.tsx` | **client component** (`'use client'`) | Canvas, `requestAnimationFrame`, teclado, `window`, `localStorage` |
+| `src/lib/sound.ts` | módulo do cliente | `AudioContext`; nunca executa no servidor |
+
+Consequências que o código precisa respeitar:
+
+1. **Nada de API do navegador durante o render.** `localStorage` e `AudioContext` são acessados em `useEffect` ou dentro de handlers, nunca no corpo do componente.
+2. **Hidratação sem divergência.** `best` e `muted` começam em `0`/`false` no servidor e no primeiro render do cliente; o valor real do `localStorage` entra em um `useEffect` de montagem. Se fossem lidos no `useState` inicial, o HTML do servidor (`0`) divergiria do cliente (`42`) e o React acusaria erro de hidratação.
+3. **Estado aleatório não vai para o HTML.** O `Game` inicial usa `Math.random` (posição da fruta) e é criado em `useRef` — como só afeta o canvas, não há diferença visível no markup.
+4. **`reactStrictMode: true`** em `next.config.ts` mantém o duplo-mount de desenvolvimento; todos os efeitos do jogo têm cleanup idempotente (o loop cancela o `requestAnimationFrame`, a leitura do storage é read-only).
 
 ---
 
@@ -137,7 +157,7 @@ O HUD, o overlay e o indicador de turbo são HTML/CSS por cima do canvas (`posit
 
 ## Áudio
 
-`src/sound.ts` sintetiza tudo com osciladores — nenhum arquivo de áudio é carregado.
+`src/lib/sound.ts` sintetiza tudo com osciladores — nenhum arquivo de áudio é carregado. O módulo é importado só pelo client component, então nunca é executado no servidor.
 
 - `getCtx()` cria/reaproveita um `AudioContext` (com fallback `webkitAudioContext`) e o retoma se estiver suspenso; retorna `null` quando o som está mudo, quando não há `window` (SSR) ou quando a API não existe.
 - `tone()` agenda um oscilador com envelope de ganho (ataque de 12 ms, decaimento até `0.0001`) e desconecta os nós no `onended`, evitando vazamento.
@@ -148,7 +168,7 @@ O HUD, o overlay e o indicador de turbo são HTML/CSS por cima do canvas (`posit
 
 ## Constantes de ajuste
 
-Todas no topo de `src/SnakeGame.tsx`:
+Todas no topo de `src/components/SnakeGame.tsx`:
 
 | Constante | Valor | Efeito |
 | --- | --- | --- |
@@ -191,5 +211,5 @@ Ideias que cabem na arquitetura atual sem refatoração relevante:
 - **Sem vitória**: se a cobra preencher o tabuleiro, `placeFood` posiciona a fruta em `{0, 0}` em vez de encerrar com vitória.
 - **Sem swipe**: em telas de toque, o controle é pelo d-pad.
 - **Sem wrap de bordas**: encostar na parede encerra a partida.
-- **`snake.html` legado**: a versão em HTML único não tem pausa, turbo nem som, e não recebe as melhorias da versão React.
+- **`public/snake.html` legado**: a versão em HTML único (servida em `/snake.html`) não tem pausa, turbo nem som, e não recebe as melhorias da versão React.
 - **Recorde único**: não há separação por modo ou dificuldade.
