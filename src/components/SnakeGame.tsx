@@ -2,26 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TouchEvent } from 'react';
+import {
+  ABILITY_THRESHOLD,
+  CELL,
+  COLS,
+  H,
+  ROWS,
+  W,
+  abilityPips as computeAbilityPips,
+  createGame,
+  step,
+  stepInterval,
+  type Dir,
+  type Game,
+} from '@/game/engine';
 import { sfx } from '@/lib/sound';
+import { haptic } from '@/lib/haptics';
 
-type Cell = { x: number; y: number };
-type Dir = { x: number; y: number };
 type Status = 'idle' | 'running' | 'paused' | 'over';
 
-const COLS = 20;
-const ROWS = 20;
-const CELL = 20;
-const W = COLS * CELL;
-const H = ROWS * CELL;
-
-const BASE_SPEED = 130; // ms por passo
-const MIN_SPEED = 70; // velocidade máxima
-const SPEED_STEP = 3; // ms mais rápido a cada comida
-const BOOST_FACTOR = 0.5; // turbo da barra de espaço
-const ABILITY_THRESHOLD = 5; // frutas para encher a barra de carga
-const ABILITY_DURATION_MS = 2000; // duração do modo especial (2 s)
-const ABILITY_SPEED_FACTOR = 0.5; // intervalo ×0.5 durante a habilidade (D2)
-const CUT_BONUS_PER_SEGMENT = 20; // bônus por segmento cortado (200% de 10)
 const BEST_KEY = 'snakeBest';
 
 const UP: Dir = { x: 0, y: -1 };
@@ -45,130 +44,6 @@ const KEY_MAP: Record<string, Dir> = {
 };
 
 const BTN_MAP: Record<string, Dir> = { up: UP, down: DOWN, left: LEFT, right: RIGHT };
-
-interface Game {
-  snake: Cell[];
-  prev: Cell[];
-  dir: Dir;
-  queue: Dir[];
-  food: Cell;
-  score: number;
-  speed: number;
-  acc: number;
-  deathAt: number;
-  foodCount: number; // carga da barra (0 a ABILITY_THRESHOLD)
-  isAbilityActive: boolean; // modo especial de turbo + auto-corte
-  abilityTimer: number; // ms restantes da habilidade
-}
-
-function placeFood(g: Game) {
-  const free: Cell[] = [];
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      if (!g.snake.some((s) => s.x === x && s.y === y)) free.push({ x, y });
-    }
-  }
-  g.food = free.length ? free[Math.floor(Math.random() * free.length)] : { x: 0, y: 0 };
-}
-
-function createGame(): Game {
-  const start: Cell[] = [
-    { x: 10, y: 10 },
-    { x: 9, y: 10 },
-    { x: 8, y: 10 },
-  ];
-  const g: Game = {
-    snake: start.map((c) => ({ ...c })),
-    prev: start.map((c) => ({ ...c })),
-    dir: RIGHT,
-    queue: [],
-    food: { x: 0, y: 0 },
-    score: 0,
-    speed: BASE_SPEED,
-    acc: 0,
-    deathAt: 0,
-    foodCount: 0,
-    isAbilityActive: false,
-    abilityTimer: 0,
-  };
-  placeFood(g);
-  return g;
-}
-
-function step(
-  g: Game,
-  onEat: (score: number) => void,
-  onCut: (score: number, segments: number) => void,
-  onAbility: () => void
-): boolean {
-  // consome a fila de direções ignorando inversões ilegais
-  while (g.queue.length) {
-    const d = g.queue.shift()!;
-    if (!(d.x === -g.dir.x && d.y === -g.dir.y)) {
-      g.dir = d;
-      break;
-    }
-  }
-
-  const head: Cell = { x: g.snake[0].x + g.dir.x, y: g.snake[0].y + g.dir.y };
-
-  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
-    g.deathAt = performance.now();
-    return false;
-  }
-
-  const eat = head.x === g.food.x && head.y === g.food.y;
-  const body = eat ? g.snake : g.snake.slice(0, -1);
-  const hitIndex = body.findIndex((s) => s.x === head.x && s.y === head.y);
-
-  if (hitIndex !== -1) {
-    // habilidade inativa: regra padrão de derrota
-    if (!g.isAbilityActive) {
-      g.deathAt = performance.now();
-      return false;
-    }
-
-    // D6: a habilidade vale até o fim deste quadro
-    // auto-corte: mantém a cabeça e o trecho anterior ao gomo atingido
-    const cutSegments = g.snake.length - hitIndex;
-    g.prev = g.snake;
-    g.snake = [head, ...g.snake.slice(0, hitIndex)];
-    g.score += cutSegments * CUT_BONUS_PER_SEGMENT; // D4: 20 pts por segmento
-    onCut(g.score, cutSegments);
-    return true;
-  }
-
-  g.prev = g.snake;
-  g.snake = eat ? [head, ...g.snake] : [head, ...g.snake.slice(0, -1)];
-
-  if (eat) {
-    g.score += 10;
-    g.speed = Math.max(MIN_SPEED, g.speed - SPEED_STEP);
-
-    if (g.isAbilityActive) {
-      // durante a habilidade a barra só acompanha o próximo ciclo
-      g.foodCount = Math.min(g.foodCount + 1, ABILITY_THRESHOLD);
-    } else if (g.foodCount < ABILITY_THRESHOLD) {
-      g.foodCount += 1;
-    } else {
-      // D1: barra cheia na 5ª fruta; a recolha seguinte ativa e zera o ciclo
-      g.foodCount = 0;
-      g.isAbilityActive = true;
-      g.abilityTimer = ABILITY_DURATION_MS;
-      onAbility();
-    }
-
-    placeFood(g);
-    onEat(g.score);
-  }
-  return true;
-}
-
-function stepInterval(g: Game, boosting: boolean): number {
-  // D3: a habilidade não acumula com o turbo do espaço
-  if (g.isAbilityActive) return g.speed * ABILITY_SPEED_FACTOR;
-  return boosting ? g.speed * BOOST_FACTOR : g.speed;
-}
 
 function roundedRect(
   ctx: CanvasRenderingContext2D,
@@ -341,6 +216,7 @@ export default function SnakeGame() {
   const onCut = useCallback(
     (newScore: number) => {
       sfx.cut();
+      void haptic('medium');
       setScore(newScore);
       commitBest(newScore);
     },
@@ -349,6 +225,7 @@ export default function SnakeGame() {
 
   const onAbility = useCallback(() => {
     sfx.ability();
+    void haptic('light');
   }, []);
 
   // espelha no React só o que a UI mostra (barra de carga e modo especial)
@@ -362,9 +239,7 @@ export default function SnakeGame() {
       setAbility(g.isAbilityActive);
     }
     // contagem regressiva em 5 degraus: a barra esvazia durante a habilidade
-    const left = g.isAbilityActive
-      ? Math.max(1, Math.ceil((g.abilityTimer / ABILITY_DURATION_MS) * ABILITY_THRESHOLD))
-      : 0;
+    const left = computeAbilityPips(g);
     if (left !== abilityPipsRef.current) {
       abilityPipsRef.current = left;
       setAbilityPips(left);

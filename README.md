@@ -33,6 +33,7 @@ Jogo da cobrinha feito em **React + TypeScript + Next.js (App Router)**, com ren
 - Máquina de estados completa: título → jogando → pausado → fim de jogo, com overlays e opções de resumir, resetar ou sair.
 - Efeitos sonoros sintetizados com Web Audio API (comer, morrer, iniciar, pausar, clicar) e botão de mudo persistido.
 - Recorde salvo no `localStorage`.
+- **Habilidade especial**: 5 frutas enchem a barra, a 6ª libera 2 s de turbo com auto-corte (20 pts por gomo), com vibração e som próprios.
 - Layout responsivo (desktop e mobile) com d-pad na tela, swipe no tabuleiro e botão de turbo.
 - **PWA instalável** com funcionamento offline (manifest, ícones e service worker próprios, sem dependências).
 - Metadados de página (`title`, `description`, `lang="pt-BR"`, `themeColor`) via Metadata API do Next.
@@ -46,7 +47,7 @@ Jogo da cobrinha feito em **React + TypeScript + Next.js (App Router)**, com ren
 | TypeScript | `^5.6.3` | 5.9.3 |
 | @types/node | `^24.10.1` | 24.19.2 |
 
-Sem bibliotecas de UI, de estado ou de áudio — apenas React, Next e APIs do navegador (Canvas 2D e Web Audio). Versões exatas do que está instalado ficam travadas em `package-lock.json`.
+Sem bibliotecas de UI, de estado ou de áudio — apenas React, Next e APIs do navegador (Canvas 2D e Web Audio). Os únicos pacotes extras são os do **Capacitor** (`core`, `cli`, `haptics`), usados apenas quando o app roda como build nativo. Versões exatas do que está instalado ficam travadas em `package-lock.json`.
 
 ## Requisitos
 
@@ -58,13 +59,16 @@ Sem bibliotecas de UI, de estado ou de áudio — apenas React, Next e APIs do n
 npm install        # instala as dependências
 
 npm run dev        # servidor de desenvolvimento (http://localhost:3000)
-npm run build      # build de produção em .next/ (inclui o typecheck)
-npm start          # serve o build de produção em http://localhost:3000
+npm run build      # build estático em out/ (inclui o typecheck)
+npm run preview    # serve out/ em http://localhost:3000 (npx serve)
 npm run typecheck  # apenas o typecheck (tsc --noEmit)
+npm test           # testes do núcleo do jogo (node --test)
 npm run icons      # regenera os ícones do PWA (scripts/make-icons.mjs)
 ```
 
 O `next build` falha se houver erro de TypeScript, então o build já valida os tipos.
+
+**Export estático:** `next.config.ts` usa `output: 'export'` (necessário para empacotar com Capacitor), então `next start` não serve mais o app — use `npm run preview`.
 
 ## Deploy
 
@@ -93,16 +97,19 @@ Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticam
 - Cada fruta vale **10 pontos** e faz a cobra crescer um segmento.
 - A cada fruta o intervalo entre passos diminui **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
 - Comer não reposiciona a cobra: a fruta sempre nasce em uma célula livre.
-- Bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
+- **Barra de carga:** a 5ª fruta enche a barra; a **6ª** ativa a habilidade por **2 s**.
+- **Habilidade:** intervalo pela metade (não acumula com o turbo do `Espaço`) e encostar no próprio corpo **corta** em vez de matar — cada gomo cortado vale **20 pontos**.
+- Fora da habilidade, bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
 - O recorde é atualizado durante a partida e exibido no HUD.
 
-Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/arquitetura.md](docs/arquitetura.md#constantes-de-ajuste)).
+Valores ajustáveis ficam em `src/game/engine.ts` (regras e ritmo) e no componente (persistência) — ver [docs/arquitetura.md](docs/arquitetura.md#constantes-de-ajuste).
 
 ## Estrutura do projeto
 
 ```
 .
-├── next.config.ts          # configuração do Next (React Strict Mode)
+├── next.config.ts          # Next + export estático (out/)
+├── capacitor.config.ts     # configuração do app nativo (webDir: out)
 ├── package.json            # scripts e dependências
 ├── tsconfig.json           # TypeScript estrito + alias @/* → src/*
 ├── public/
@@ -111,7 +118,8 @@ Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/a
 │   ├── offline.html        # fallback sem rede
 │   └── icon-*.png          # ícones do PWA (+ apple-touch-icon.png)
 ├── scripts/
-│   └── make-icons.mjs      # gera os ícones PNG sem dependências
+│   ├── make-icons.mjs      # gera os ícones PNG sem dependências
+│   └── serve.mjs           # servidor estático do build (npm run preview)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx      # <html>/<body>, metadata, viewport e CSS global
@@ -120,12 +128,17 @@ Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/a
 │   │   ├── page.tsx        # rota "/" — apenas monta o componente do jogo
 │   │   └── globals.css     # tema, HUD, tabuleiro, overlays, d-pad e responsividade
 │   ├── components/
-│   │   ├── SnakeGame.tsx   # "use client": loop, regras, render, HUD e overlays
+│   │   ├── SnakeGame.tsx   # "use client": loop, entrada, render, HUD e overlays
 │   │   └── PwaRegister.tsx # registra o service worker em produção
+│   ├── game/
+│   │   ├── engine.ts       # núcleo puro: regras, habilidade, corte e ritmo
+│   │   └── engine.test.ts  # testes do núcleo (npm test)
 │   └── lib/
-│       └── sound.ts        # efeitos sonoros via Web Audio API (com mute persistido)
+│       ├── sound.ts        # efeitos sonoros via Web Audio API (com mute persistido)
+│       └── haptics.ts      # vibração nativa (Capacitor) com fallback web
 ├── docs/                   # documentação técnica
 │   ├── arquitetura.md
+│   ├── nativo.md
 │   └── restauracao-e-snapshots.md
 └── .backup/                # cópia local de rollback (não versionada)
 ```
@@ -134,7 +147,9 @@ Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/a
 
 Next.js App Router: `src/app/page.tsx` é um **server component** que só monta `<SnakeGame />`; o jogo em si é um **client component** (`'use client'`), porque depende de canvas, teclado, `requestAnimationFrame` e `localStorage`.
 
-O jogo não usa React para o estado da partida: `SnakeGame.tsx` mantém o estado mutável em um objeto `Game` dentro de um `useRef` e desenha no canvas a cada quadro. O React só renderiza o HUD e os overlays, atualizados por `useState` quando algo relevante muda (pontos, recorde, status, turbo). O loop usa um acumulador de tempo, então a velocidade do passo é independente do framerate da tela.
+As **regras** ficam em `src/game/engine.ts`, um módulo puro (sem React nem DOM) com o modelo `Game`, `step()`, `stepInterval()` e `placeFood()`. Isso permite testar a mecânica com `npm test` e mantém o componente só com loop, entrada e desenho.
+
+O jogo não usa React para o estado da partida: `SnakeGame.tsx` mantém o objeto `Game` em um `useRef` e desenha no canvas a cada quadro. O React só renderiza o HUD e os overlays, atualizados por `useState` quando algo relevante muda (pontos, recorde, carga, status, turbo). O loop usa um acumulador de tempo, então a velocidade do passo é independente do framerate da tela.
 
 Como a página é renderizada no servidor antes de hidratar no cliente, tudo que vem do `localStorage` (recorde e preferência de som) é lido em `useEffect`, depois da montagem — assim o HTML do servidor não diverge do primeiro render do cliente.
 
@@ -152,14 +167,16 @@ As leituras acontecem depois da montagem (evitando erro de hidratação) e são 
 ## Documentação
 
 - [docs/arquitetura.md](docs/arquitetura.md) — modelo de dados, loop, máquina de estados, renderização, áudio, fronteira servidor/cliente e pontos de extensão.
+- [docs/nativo.md](docs/nativo.md) — Capacitor: como gerar os projetos Android/iOS (em outra máquina), ícone, splash e assinatura.
 - [docs/restauracao-e-snapshots.md](docs/restauracao-e-snapshots.md) — como voltar a uma versão anterior (git, backup local e snapshot no ai-memory), incluindo o retorno à versão Vite.
 
 ## Versionamento e rollback
 
 - Repositório: `https://github.com/Ashr1el/SnakeRush` — branch `developer`.
 - **v1** (`629c0a5`): versão original em React + Vite.
-- **v2** (`2.0.0`): migração para Next.js — este estado.
-- A v1 continua preservada em `.backup/v1-2026-10-27/` (com `MANIFEST.sha256`), no histórico do Git e nas páginas `snapshots/2026-10-27-jogo-da-cobrinha-v1*` do ai-memory.
+- **v2** (`2.0.0`): migração para Next.js.
+- **v3** (tag `v3`): habilidade + auto-corte, PWA offline, controles de toque, export estático e núcleo testável.
+- A v1 continua preservada em `.backup/v1-2026-10-27/`, a v2.1 em `.backup/v2.1-pre-habilidade-2026-10-27/` e a v3 em `.backup/v3-2026-10-27/` (todas com `MANIFEST.sha256`), além do histórico do Git e das páginas `snapshots/*` do ai-memory.
 - Procedimento completo de restauração (incluindo como voltar de Next para Vite): [docs/restauracao-e-snapshots.md](docs/restauracao-e-snapshots.md).
 
 ## Versão legada

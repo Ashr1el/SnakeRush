@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next';
 
+// necessário para `output: 'export'`
+export const dynamic = 'force-static';
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Jogo da Cobrinha',

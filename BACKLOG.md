@@ -6,17 +6,19 @@
 
 ## Progresso
 
-**2026-10-27 — ondas 1, 2 e 3 na branch `feat/habilidade-e-mobile`:**
+**2026-10-27 — ondas 1 a 6 na branch `feat/habilidade-e-mobile`:**
 
 - **Onda 1:** E0-01 … E0-04 concluídas. Baseline verde e decisões D1–D8 aprovadas.
 - **Onda 2:** E1-01 … E1-06, E2-01, E2-02, E2-04 e E2-03 (barra esvaziando em 5 degraus durante os 2 s) concluídas.
 - **Onda 3:** E3-01 … E3-05 concluídas — manifest, ícones (`npm run icons`), service worker, tela cheia com `safe-area`, botão de turbo no toque e swipe no tabuleiro.
+- **Onda 4 (E4):** E4-01 (export estático → `out/`), E4-02 (`capacitor.config.ts` com `webDir: 'out'`) e E4-05 (haptics) concluídas. E4-03/E4-04 **bloqueadas por regra**: Android não roda nesta máquina — comandos e checklist entregues em `docs/nativo.md`.
+- **Onda 5 (E5):** núcleo extraído para `src/game/engine.ts` (E5-01), 9 testes automatizados em `src/game/engine.test.ts` (`npm test`), documentação atualizada (E5-02) e snapshot `v3` (E5-03).
 
-`tsc --noEmit` e `next build` verdes; `/manifest.webmanifest`, `/sw.js`, `/offline.html` e os ícones respondem 200 em `next start`.
+`tsc --noEmit`, `next build` e `node --test` verdes; `out/` contém `index.html`, `404.html`, `manifest.webmanifest`, `sw.js`, `offline.html` e os ícones.
 
-Ponto de retorno: tag `checkpoint-2026-10-27-pre-habilidade`, `.backup/v2.1-pre-habilidade-2026-10-27/` e página `snapshots/2026-10-27-checkpoint-pre-habilidade` no ai-memory.
+Ponto de retorno anterior: tag `checkpoint-2026-10-27-pre-habilidade`, `.backup/v2.1-pre-habilidade-2026-10-27/` e página `snapshots/2026-10-27-checkpoint-pre-habilidade` no ai-memory. Snapshot atual: tag `v3`, `.backup/v3-2026-10-27/` e página `snapshots/2026-10-27-v3-habilidade-pwa`.
 
-**Aguardando:** teste manual do usuário (E1-07) e decisão sobre manter/reverter. Próxima onda possível: E4 (Capacitor), que exige Android SDK, macOS para iOS e definição do ID do app (D8).
+**Aguardando (dependem do usuário):** E1-07 (teste manual dos cenários de timing), E4-03/E4-04 (executar `cap add`/build em máquina com SDK) e a matriz de QA do E5-03. **Nada foi publicado** — `developer` intacta e o deploy continua exigindo ordem explícita.
 
 ## Legenda
 
@@ -111,7 +113,9 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ### E1-07 · Testes manuais dirigidos · **M** 🔒 E1-06
 - [ ] Cenários: ativar e cortar; cortar sem habilidade (morte); cortar no último ms; pausar durante habilidade; habilidade expirando no mesmo passo de uma colisão
 - [ ] Cenário de borda: cobra de 3 segmentos, colisão na cauda (não deve cortar errado)
+- [x] Cobertura automatizada dos cenários de regra em `src/game/engine.test.ts` (`npm test`): ativação na 6ª fruta, corte com bônus, morte por corpo sem habilidade, parede, barra e fila de direções
 - **Aceite:** todos os cenários registrados neste arquivo com resultado.
+- **Pendente:** os cenários dependentes de jogar (timing do último ms, pausa no meio da habilidade) exigem sessão manual.
 
 ---
 
@@ -139,9 +143,9 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 - [x] Respeitar mudo; sem arquivos de áudio
 - **Aceite:** sons distintos de `eat`/`die`; nada toca com o som desativado.
 
-### E2-05 · Vibração (preparação para mobile) · **P** 🔒 E4-01
-- [ ] `navigator.vibrate` apenas se existir, e apenas no corte/ativação
-- [ ] Fallback silencioso no iOS (sem suporte)
+### E2-05 · Vibração (preparação para mobile) · **P** ✅
+- [x] `navigator.vibrate` apenas se existir, e apenas no corte/ativação — via `src/lib/haptics.ts`
+- [x] Fallback silencioso no iOS (sem suporte) e uso de `@capacitor/haptics` quando nativo
 - **Aceite:** não quebra em navegador sem a API.
 
 ---
@@ -178,53 +182,58 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 
 ## E4 — Mobile nativo (Capacitor)
 
-### E4-01 · Export estático · **M**
-- [ ] `next.config.ts` → `output: 'export'` e `images: { unoptimized: true }`
-- [ ] `npm run build` gera `out/`; `npm start` deixa de servir (documentar)
+### E4-01 · Export estático · **M** ✅
+- [x] `next.config.ts` → `output: 'export'` e `images: { unoptimized: true }`
+- [x] `npm run build` gera `out/`; `npm start` deixa de servir (documentado em `docs/arquitetura.md` e `DOSSIER.md`)
 - **Aceite:** `out/index.html` abre o jogo; `/snake.html` continua acessível.
 
-### E4-02 · Inicializar Capacitor · **M** 🔒 E4-01
-- [ ] `npm i @capacitor/core @capacitor/cli`; `npx cap init SnakeRush com.exemplo.snakerush` (definir ID final)
-- [ ] `capacitor.config.ts` com `webDir: 'out'`
-- **Aceite:** `npx cap sync` conclui sem erro.
+### E4-02 · Inicializar Capacitor · **M** ✅
+- [x] `npm i @capacitor/core @capacitor/cli @capacitor/haptics`; `npx cap init SnakeRush com.exemplo.snakerush`
+- [x] `capacitor.config.ts` com `webDir: 'out'`
+- **Aceite:** `npx cap ls` valida a configuração. O `npx cap sync` de verdade só faz sentido depois de `cap add` (E4-03).
 
-### E4-03 · Plataformas · **G** 🔒 E4-02
+### E4-03 · Plataformas · **G** 🔒 E4-02 · **bloqueado nesta máquina**
 > ⚠️ **Android nunca roda nesta máquina** (`AGENTS.md`). O agente prepara arquivos e comandos; a execução de `cap add/sync`, Gradle, ADB ou emulador fica com o usuário, em outra máquina ou em CI.
 
-- [ ] `npx cap add android` — **entregar o comando, não executar** (requer Android SDK)
-- [ ] `npx cap add ios` — **entregar o comando** (requer macOS + Xcode)
-- [ ] `.gitignore`: decidir versionar ou não `android/` e `ios/`
+- [ ] `npx cap add android` — **entregar o comando, não executar** (requer Android SDK) · instruções em `docs/nativo.md`
+- [ ] `npx cap add ios` — **entregar o comando** (requer macOS + Xcode) · instruções em `docs/nativo.md`
+- [x] `.gitignore`: `android/` e `ios/` **não versionados** (recriados por `cap add`)
 - **Aceite:** app abre no emulador Android (execução do usuário); iOS validado quando houver máquina.
 
-### E4-04 · Empacotamento e assinatura · **G** 🔒 E4-03
+### E4-04 · Empacotamento e assinatura · **G** 🔒 E4-03 · **bloqueado nesta máquina**
 - [ ] Ícone/splash, `applicationId`, versão `versionName`/`versionCode`
 - [ ] AAB assinado (Play) e archive (App Store)
 - **Aceite:** build de release instalável em dispositivo físico.
+- **Entregue:** passo a passo de ícone, splash, keystore e `bundleRelease` em `docs/nativo.md`.
 
-### E4-05 · Haptics nativos (substitui `navigator.vibrate`) · **P**
-- [ ] `@capacitor/haptics` no corte/ativação, com fallback web
-- **Aceite:** vibração funciona no Android; iOS respeita as limitações da API.
+### E4-05 · Haptics nativos (substitui `navigator.vibrate`) · **P** ✅
+- [x] `@capacitor/haptics` no corte/ativação, com fallback web (`src/lib/haptics.ts`)
+- **Aceite:** vibração funciona no Android (validar junto de E4-03); iOS respeita as limitações da API.
 
 ---
 
 ## E5 — Fechamento
 
-### E5-01 · Revisão de arquitetura · **M**
-- [ ] `SnakeGame.tsx` perto de 600 linhas: avaliar extrair `game/engine.ts` (puro) + `game/draw.ts`
-- **Aceite:** se extrair, build/typecheck verdes e nenhuma regressão de comportamento.
+### E5-01 · Revisão de arquitetura · **M** ✅
+- [x] `SnakeGame.tsx` (~700 linhas): extraído `src/game/engine.ts` (puro, sem React/DOM)
+- [x] `src/game/engine.test.ts` com 9 casos automatizados (`npm test`)
+- **Aceite:** build/typecheck verdes e nenhuma regressão de comportamento.
+- **Nota:** `game/draw.ts` não foi extraído — o desenho depende de constantes de tela (`CELL`) e não ganhou testabilidade com a mudança. Fica como extensão.
 
-### E5-02 · Documentação · **M**
-- [ ] Atualizar `DOSSIER.md` (regras, modelo `Game`, constantes, PWA/Capacitor)
-- [ ] Atualizar `README.md` (scripts `cap`, `output: export`)
-- [ ] Atualizar `docs/arquitetura.md` (nova mecânica e fluxo de corte)
+### E5-02 · Documentação · **M** ✅
+- [x] `DOSSIER.md` (regras, modelo `Game`, constantes, PWA/Capacitor, `npm test`)
+- [x] `README.md` (scripts `test`/`icons`, `output: export`, controles de toque)
+- [x] `docs/arquitetura.md` reescrito (núcleo puro, habilidade, corte, PWA)
+- [x] `docs/nativo.md` criado (Capacitor, Android/iOS, assinatura)
 - **Aceite:** nenhum documento contradiz o código.
 
-### E5-03 · QA final e release · **M** 🔒 todas
+### E5-03 · QA final e release · **M** 🔒 todas · **parcial**
 - [ ] Matriz de teste: desktop teclado · desktop mouse/d-pad · Android Chrome · iOS Safari · PWA instalada · app nativo
-- [ ] `npm run typecheck` + `npm run build`
-- [ ] Snapshot `v3` nas três camadas (Git tag, `.backup/`, ai-memory)
-- [ ] **Deploy só com ordem explícita** (`AGENTS.md`)
+- [x] `npm run typecheck` + `npm run build` + `npm test` verdes
+- [x] Snapshot `v3` nas três camadas (Git tag, `.backup/v3-…`, ai-memory)
+- [ ] **Deploy só com ordem explícita** (`AGENTS.md`) — nada publicado
 - **Aceite:** checklist de `DOSSIER.md` §22 completo.
+- **Pendente:** teste manual/jogabilidade e matriz de dispositivos (dependem do usuário).
 
 ---
 

@@ -15,6 +15,10 @@ next-env.d.ts
 # build antigo (Vite) — mantido por segurança caso surja um dist/ residual
 dist/
 
+# projetos nativos do Capacitor — recriados com `npx cap add` (ver docs/nativo.md)
+android/
+ios/
+
 # snapshot local de rollback (não versionado)
 .backup/
 

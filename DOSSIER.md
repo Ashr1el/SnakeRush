@@ -55,17 +55,19 @@ Build padrão do Next (Turbopack no 16). Versões exatas ficam travadas em `pack
 | Script | Comando | Função |
 | --- | --- | --- |
 | `dev` | `next dev` | Servidor de desenvolvimento em `http://localhost:3000` |
-| `build` | `next build` | Build de produção em `.next/` (inclui typecheck) |
-| `start` | `next start` | Serve o build de produção |
+| `build` | `next build` | Build estático em `out/` (inclui typecheck) |
+| `preview` | `node scripts/serve.mjs out` (ou `npm run preview`) | Serve o build estático (`next start` não funciona com `output: 'export'`) |
 | `typecheck` | `tsc --noEmit` | Apenas verificação de tipos |
+| `test` | `node --test "src/**/*.test.ts"` | Testes do núcleo (`node:test`, sem runner extra) |
 | `icons` | `node scripts/make-icons.mjs` | Regenera os ícones do PWA (PNG sem dependências) |
 
 O `next build` falha com qualquer erro de TypeScript, então o build já valida os tipos.
 
 ### Configuração de compilação
 
-- `next.config.ts`: apenas `reactStrictMode: true` (mantém o duplo-mount em desenvolvimento; todos os efeitos têm cleanup idempotente).
-- `tsconfig.json`: `strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `noEmit`, `moduleResolution: "bundler"`, `jsx: "react-jsx"`, alias `@/* → ./src/*`, exclusão de `node_modules` e `.backup`.
+- `next.config.ts`: `reactStrictMode: true`, `output: 'export'` (gera `out/`) e `images: { unoptimized: true }`.
+- `tsconfig.json`: `strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `noEmit`, `allowImportingTsExtensions`, `moduleResolution: "bundler"`, `jsx: "react-jsx"`, alias `@/* → ./src/*`, exclusão de `node_modules`, `.backup` e `.next/dev` (os tipos gerados em dev têm imports não usados e quebram `noUnusedLocals`).
+- `capacitor.config.ts`: `appId com.exemplo.snakerush`, `appName SnakeRush`, `webDir: 'out'`.
 
 ---
 
@@ -76,10 +78,11 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 ├── AGENTS.md                    # regras para agentes (deploy só on demand)
 ├── DOSSIER.md                   # este documento
 ├── README.md                    # visão geral e guia rápido
-├── next.config.ts               # React Strict Mode
+├── next.config.ts               # React Strict Mode + export estático (out/)
+├── capacitor.config.ts          # configuração do app nativo (webDir: out)
 ├── package.json                 # scripts e dependências
 ├── tsconfig.json                # TS estrito + alias @/*
-├── .gitignore                   # node_modules, .next, .env*, .vercel, .backup
+├── .gitignore                   # node_modules, .next, out, .env*, .vercel, .backup, android, ios
 ├── .env.local                   # gerado pelo Vercel CLI (NÃO versionado)
 ├── .vercel/                     # link local do projeto na Vercel (NÃO versionado)
 ├── .backup/v1-2026-10-27/       # cópia byte a byte da v1 em Vite (NÃO versionado)
@@ -92,7 +95,8 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 │   ├── icon-maskable-512.png
 │   └── apple-touch-icon.png
 ├── scripts/
-│   └── make-icons.mjs           # gerador de ícones PNG sem dependências
+│   ├── make-icons.mjs           # gerador de ícones PNG sem dependências
+│   └── serve.mjs                # servidor estático do build (`npm run preview`)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx           # <html>/<body>, metadata, viewport, CSS global, PWA
@@ -101,12 +105,17 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 │   │   ├── page.tsx             # rota "/" — monta <SnakeGame />
 │   │   └── globals.css          # tema, HUD, tabuleiro, overlays, d-pad, responsivo
 │   ├── components/
-│   │   ├── SnakeGame.tsx        # client component: estado, loop, regras, render, HUD
+│   │   ├── SnakeGame.tsx        # client component: loop, entrada, render, HUD
 │   │   └── PwaRegister.tsx      # registra o service worker em produção
+│   ├── game/
+│   │   ├── engine.ts            # núcleo puro: Game, step(), passo/intervalo, fruta
+│   │   └── engine.test.ts       # testes do núcleo (npm test)
 │   └── lib/
-│       └── sound.ts             # efeitos sonoros (Web Audio) + mute persistido
+│       ├── sound.ts             # efeitos sonoros (Web Audio) + mute persistido
+│       └── haptics.ts           # vibração nativa (Capacitor) com fallback web
 └── docs/
     ├── arquitetura.md           # modelo de dados, loop, estados, render, áudio
+    ├── nativo.md                # Capacitor: Android/iOS, assinatura, checklist
     └── restauracao-e-snapshots.md # rollback (git, backup local, ai-memory)
 ```
 
@@ -468,7 +477,15 @@ Pedido ambíguo ("testa se está tudo certo") **não** autoriza. Quando autoriza
 | Versão | Referência | Estado |
 | --- | --- | --- |
 | v1 | `629c0a5` | React + Vite (preservada em backup, Git e ai-memory) |
-| v2 | `2.0.0` | **Atual** — migração para Next.js 16 App Router |
+| v2 | `2.0.0` | Migração para Next.js 16 App Router |
+| v3 | tag `v3` | **Atual** — habilidade + auto-corte, PWA offline, controles de toque, export estático e núcleo testável |
+
+O backup local e a página do ai-memory de cada versão:
+
+| Versão | Backup | ai-memory |
+| --- | --- | --- |
+| v2.1 (pré-habilidade) | `.backup/v2.1-pre-habilidade-2026-10-27/` | `snapshots/2026-10-27-checkpoint-pre-habilidade` |
+| v3 | `.backup/v3-2026-10-27/` | `snapshots/2026-10-27-v3-habilidade-pwa` |
 
 ### Convenções
 
@@ -512,11 +529,12 @@ Ideias que cabem na arquitetura atual sem refatoração relevante:
 
 - [ ] `npm run typecheck` passa
 - [ ] `npm run build` passa (verifica tipos e rotas)
+- [ ] `npm test` passa
 - [ ] Nenhuma API de navegador fora de `useEffect`/handlers (hidratação)
 - [ ] Controles de teclado e d-pad continuam consistentes
 - [ ] Som/mudo e recorde persistindo
 - [ ] Layout verificado em desktop e ≤420 px
-- [ ] PWA instalável e offline (`npm run build && npm start`, depois modo avião)
+- [ ] PWA instalável e offline (`npm run build && npm run preview`, depois modo avião)
 - [ ] `AGENTS.md` respeitado (sem deploy sem ordem explícita)
 - [ ] Se a versão atual deve ser preservada: novo snapshot `v<N>` nas três camadas
 
@@ -572,9 +590,51 @@ O `activate` apaga caches de versões antigas (`VERSION` no topo de `sw.js`) e c
 ### Como testar
 
 ```bash
-npm run build && npm start      # o SW só é registrado em produção
-# abra http://localhost:3000, recarregue e confira DevTools > Application > Service Workers
+npm run build && npm run preview   # gera out/ e serve em http://localhost:3000
+# o SW só é registrado em produção
+# abra a URL, recarregue e confira DevTools > Application > Service Workers
 # depois ative "Offline" no DevTools (ou modo avião) e recarregue: o jogo deve abrir
 ```
 
 Lighthouse deve apontar "Installable". O ícone maskable é usado pelo Android; o `apple-touch-icon` cobre o iOS.
+
+---
+
+## 25. Testes automatizados
+
+`src/game/engine.ts` é puro (sem React/DOM), então as regras são testadas com o runner nativo do Node:
+
+```bash
+npm test
+```
+
+| Caso | O que garante |
+| --- | --- |
+| Barra e ativação | 5ª fruta enche, 6ª ativa e zera a barra |
+| Aceleração | `speed` cai por fruta e respeita `MIN_SPEED` |
+| `stepInterval` | turbo ×0.5 e habilidade ×0.5 **sem acúmulo** (D3) |
+| Morte | parede e corpo sem habilidade encerram a partida |
+| Corte | com habilidade, corta no gomo atingido e paga 20 pts por gomo |
+| `placeFood` | nunca sorteia célula ocupada; tabuleiro cheio cai em `{0,0}` |
+| `abilityPips` | contagem 5 → 1 durante os 2 s |
+| Fila | inversão de 180° é descartada |
+
+Os testes usam `node --test` sobre TypeScript (type stripping do Node 22+), sem Vitest/Jest. O `tsconfig` habilita `allowImportingTsExtensions` para o import `./engine.ts`.
+
+**Não coberto:** timing real do `requestAnimationFrame`, input (teclado/toque) e desenho no canvas — esses dependem de teste manual (E1-07 do backlog).
+
+---
+
+## 26. App nativo (Capacitor)
+
+| Peça | Estado |
+| --- | --- |
+| `capacitor.config.ts` | `appId com.exemplo.snakerush` (provisório), `appName SnakeRush`, `webDir: out` |
+| Dependências | `@capacitor/core`, `@capacitor/cli`, `@capacitor/haptics` |
+| Haptics | `src/lib/haptics.ts` (plugin nativo + `navigator.vibrate`) |
+| `android/` e `ios/` | **não existem** — gerados por `npx cap add` em outra máquina |
+| Publicação | não feita; exige AAB assinado / archive no Xcode |
+
+Passo a passo completo (pré-requisitos, `cap add`/`sync`, ícone/splash, keystore, checklist): [`docs/nativo.md`](docs/nativo.md).
+
+> ⚠️ **Android não roda nesta máquina** (`AGENTS.md`). Os comandos são documentação, não execução.

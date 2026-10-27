@@ -1,42 +1,62 @@
 # Arquitetura — Jogo da Cobrinha
 
-Documento técnico da versão React (`src/`). Descreve o modelo de dados, o loop de jogo, a máquina de estados, a renderização em canvas, o áudio e os pontos de extensão.
+Documento técnico da versão React (`src/`). Descreve o modelo de dados, o núcleo puro do jogo, o loop, a máquina de estados, a renderização em canvas, o áudio, o PWA e o caminho nativo.
 
-> Versão documentada: **v2.0.0 — Next.js 16 (App Router)**, migração de 2026-10-27. A v1 (React + Vite) está preservada no histórico do Git e nas páginas de snapshot.
+> Versão documentada: **v2.1 — Next.js 16 (App Router), export estático e mecânica de habilidade**, 2026-10-27. A v1 (React + Vite) está preservada no histórico do Git e em `.backup/v1-2026-10-27/`.
 
 ---
 
 ## Visão geral
 
-O jogo é dividido em três camadas:
+O jogo é dividido em quatro camadas:
 
 | Camada | Arquivo | Responsabilidade |
 | --- | --- | --- |
-| Simulação + render | `src/components/SnakeGame.tsx` | Estado da partida, regras, loop e desenho no canvas |
+| Núcleo (puro) | `src/game/engine.ts` | Modelo `Game`, regras do passo, habilidade, corte, ritmo, sorteio da fruta |
+| Simulação + render | `src/components/SnakeGame.tsx` | Loop `requestAnimationFrame`, entrada, desenho no canvas, HUD e overlays |
 | Áudio | `src/lib/sound.ts` | Síntese de efeitos com Web Audio API e preferência de mudo |
-| Apresentação | `src/app/globals.css` | Tema, HUD, overlays, d-pad e responsividade |
+| Tátil | `src/lib/haptics.ts` | `@capacitor/haptics` quando nativo; `navigator.vibrate` como fallback |
+| Apresentação | `src/app/globals.css` | Tema, HUD, overlays, d-pad, botão de turbo e responsividade |
 
-Decisão central: **o estado da partida não vive no React**. Ele fica em um objeto mutável (`Game`) dentro de um `useRef`, atualizado a cada quadro e lido pelo loop de `requestAnimationFrame`. O React é usado apenas para o que precisa re-renderizar: HUD (pontos, recorde, barra de velocidade), status e overlays. Isso evita dezenas de re-renders por segundo e mantém o passo do jogo independente do framerate.
+Decisão central: **o estado da partida não vive no React**. Ele fica em um objeto mutável (`Game`) dentro de um `useRef`, atualizado a cada quadro e lido pelo loop. O React só re-renderiza o que a UI mostra: pontos, recorde, barra de carga, status e overlays. Isso evita dezenas de re-renders por segundo e mantém o passo do jogo independente do framerate.
+
+O `engine.ts` não importa React nem toca no DOM — por isso é testável direto com `npm test` (`node --test`, sem runner extra).
 
 ---
 
 ## Fronteira servidor/cliente (Next.js)
 
-O App Router renderiza tudo no servidor antes de hidratar no navegador, então o código foi dividido pela necessidade de acesso ao navegador:
+O App Router renderiza tudo no servidor antes de hidratar, então o código é dividido pela necessidade de acesso ao navegador:
 
 | Arquivo | Tipo | Por quê |
 | --- | --- | --- |
-| `src/app/layout.tsx` | server component | `<html>`/`<body>`, `metadata`, `viewport` e import do CSS global |
+| `src/app/layout.tsx` | server component | `<html>`/`<body>`, `metadata`, `viewport`, CSS global e `<PwaRegister />` |
 | `src/app/page.tsx` | server component | Só monta `<SnakeGame />` |
+| `src/app/manifest.ts` | server (estático) | Manifest do PWA; `export const dynamic = 'force-static'` é exigido por `output: 'export'` |
+| `src/game/engine.ts` | módulo puro | Regras sem DOM — roda no servidor, no cliente e nos testes |
 | `src/components/SnakeGame.tsx` | **client component** (`'use client'`) | Canvas, `requestAnimationFrame`, teclado, `window`, `localStorage` |
+| `src/components/PwaRegister.tsx` | client component | Registra o service worker só em produção |
 | `src/lib/sound.ts` | módulo do cliente | `AudioContext`; nunca executa no servidor |
 
 Consequências que o código precisa respeitar:
 
-1. **Nada de API do navegador durante o render.** `localStorage` e `AudioContext` são acessados em `useEffect` ou dentro de handlers, nunca no corpo do componente.
-2. **Hidratação sem divergência.** `best` e `muted` começam em `0`/`false` no servidor e no primeiro render do cliente; o valor real do `localStorage` entra em um `useEffect` de montagem. Se fossem lidos no `useState` inicial, o HTML do servidor (`0`) divergiria do cliente (`42`) e o React acusaria erro de hidratação.
-3. **Estado aleatório não vai para o HTML.** O `Game` inicial usa `Math.random` (posição da fruta) e é criado em `useRef` — como só afeta o canvas, não há diferença visível no markup.
-4. **`reactStrictMode: true`** em `next.config.ts` mantém o duplo-mount de desenvolvimento; todos os efeitos do jogo têm cleanup idempotente (o loop cancela o `requestAnimationFrame`, a leitura do storage é read-only).
+1. **Nada de API do navegador durante o render.** `localStorage` e `AudioContext` são acessados em `useEffect` ou em handlers.
+2. **Hidratação sem divergência.** `best` e `muted` começam em `0`/`false` no servidor e no primeiro render do cliente; o valor real entra em um `useEffect` de montagem.
+3. **Estado aleatório não vai para o HTML.** O `Game` inicial usa `Math.random` (posição da fruta) e é criado em `useRef` — só afeta o canvas.
+4. **`reactStrictMode: true`** mantém o duplo-mount de desenvolvimento; os efeitos têm cleanup idempotente.
+
+---
+
+## Export estático
+
+`next.config.ts` usa `output: 'export'` + `images: { unoptimized: true }`. O build gera `out/`, que é exatamente o que o Capacitor empacota (`webDir: 'out'`).
+
+| Consequência | Detalhe |
+| --- | --- |
+| `next start` não serve mais o app | use `npm run preview` (servidor estático próprio, sem dependências) |
+| Rotas precisam ser estáticas | o manifest declara `dynamic = 'force-static'` |
+| Sem otimização de imagem | o projeto não usa `next/image`; a flag evita erro de build |
+| Dev normal | `npm run dev` continua funcionando |
 
 ---
 
@@ -45,22 +65,24 @@ Consequências que o código precisa respeitar:
 ```ts
 type Cell = { x: number; y: number };
 type Dir = { x: number; y: number };
-type Status = 'idle' | 'running' | 'paused' | 'over';
 
 interface Game {
-  snake: Cell[];   // corpo; índice 0 = cabeça
-  prev: Cell[];    // posições do passo anterior (interpolação visual)
-  dir: Dir;        // direção atual
-  queue: Dir[];    // até 2 direções pendentes
+  snake: Cell[];          // corpo; índice 0 = cabeça
+  prev: Cell[];           // posições do passo anterior (interpolação visual)
+  dir: Dir;               // direção atual
+  queue: Dir[];           // até 2 direções pendentes
   food: Cell;
   score: number;
-  speed: number;   // ms por passo (diminui ao comer)
-  acc: number;     // acumulador de tempo do loop
-  deathAt: number; // timestamp da morte (para o flash)
+  speed: number;          // ms por passo (diminui ao comer)
+  acc: number;            // acumulador de tempo do loop
+  deathAt: number;        // timestamp da morte (para o flash)
+  foodCount: number;      // carga da barra: 0 … ABILITY_THRESHOLD
+  isAbilityActive: boolean;
+  abilityTimer: number;   // ms restantes da habilidade
 }
 ```
 
-`prev` existe só para o desenho: cada segmento é interpolado de `prev[i]` até `snake[i]`, então o movimento parece contínuo mesmo com passos discretos.
+`prev` existe só para o desenho: cada segmento é interpolado de `prev[i]` até `snake[i]`, então o movimento parece contínuo. Depois de um corte a cobra fica mais curta; o desenho usa `prev[i] ?? seg`, então não há índice fora do lugar.
 
 ### Referências mutáveis do componente
 
@@ -70,22 +92,24 @@ interface Game {
 | `statusRef` | Status "de verdade" (o `useState` só espelha para a UI) |
 | `boostRef` | Se o turbo está ativo (lido pelo loop, não pelo render) |
 | `bestRef` | Recorde, para comparar sem depender do estado do React |
-
-O loop lê `statusRef`/`boostRef`; por isso teclado e render nunca ficam defasados por um render atrasado.
+| `chargeRef` / `abilityRef` / `abilityPipsRef` | Último valor espelhado na UI, para só re-renderizar quando muda |
+| `swipeRef` | Ponto inicial do arrasto no tabuleiro |
 
 ---
 
 ## Loop principal
 
-Montado uma única vez (`useEffect` com dependência `[onEat]`):
+Montado uma única vez (`useEffect` com dependências `[onEat, onCut, onAbility, syncMeta]`):
 
 1. Configura o canvas para alta densidade: `dpr = max(1, devicePixelRatio)`, `canvas.width = W * dpr`, `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`.
-2. A cada `requestAnimationFrame`, calcula `dt = min(now - last, 200)` — o teto de 200 ms evita um salto gigante quando a aba fica em segundo plano.
-3. Se o status é `running`, soma `dt` ao acumulador e executa passos enquanto `acc >= interval`.
-4. `interval` é recalculado a cada passo: `boost ? speed * BOOST_FACTOR : speed`.
-5. Um `guard` limita a 4 passos por quadro, impedindo espiral de morte se o navegador engasgar.
-6. `t = min(acc / interval, 1)` é o fator de interpolação enviado ao desenho.
-7. `draw(ctx, g, t, now)` roda **sempre**, em qualquer status — por isso a comida continua pulsando e o flash de morte aparece mesmo com o jogo parado.
+2. A cada `requestAnimationFrame`, calcula `dt = min(now - last, 200)` — o teto evita um salto gigante quando a aba fica em segundo plano.
+3. Se a habilidade está ativa, decrementa `abilityTimer` por `dt` e a encerra quando chega a zero (D6: só expira **no início do quadro seguinte**, então o passo de colisão do quadro atual ainda conta com ela).
+4. Se o status é `running`, soma `dt` ao acumulador e executa passos enquanto `acc >= interval`.
+5. `interval = stepInterval(g, boost)` — `speed` normal, `speed * 0.5` com turbo do Espaço ou `speed * 0.5` durante a habilidade, sem acúmulo (D3).
+6. Um `guard` limita a 4 passos por quadro, impedindo espiral de morte se o navegador engasgar.
+7. `t = min(acc / interval, 1)` é o fator de interpolação enviado ao desenho.
+8. `syncMeta(g)` espelha no React apenas o que mudou (carga, modo e degraus da barra).
+9. `draw(ctx, g, t, now)` roda **sempre** — a comida pulsa e o flash de morte aparece mesmo com o jogo parado.
 
 O loop é cancelado no unmount (`cancelAnimationFrame`).
 
@@ -102,23 +126,35 @@ O status é `idle | running | paused | over`, espelhado em `statusRef` (lógica)
 | `paused` | `running` | `resume()` — `Esc`, `Espaço` ou botão **Resumir** |
 | `paused` | `running` | `start()` — botão **Resetar estágio** (recomeça do zero) |
 | `paused` | `idle` | `exitToTitle()` — botão **Sair do jogo** |
-| `running` | `over` | `step()` retorna `false` (parede ou corpo) |
+| `running` | `over` | `step()` retorna `false` (parede ou corpo **sem** habilidade) |
 | `over` | `running` | `start()` — botão **Jogar novamente** ou `Espaço` |
 
-Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`, `sfx.click`). Sair para o título e resetar também zeram `score`, `speed`, turbo e recriam o `Game`.
+Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`, `sfx.click`). Sair para o título e resetar zeram `score`, carga, habilidade e turbo, e recriam o `Game`.
 
 ---
 
 ## Regras (`step`)
 
-1. **Fila de direções** — enquanto houver itens na fila, descarta os que seriam inversão de 180° em relação à direção atual e aplica o primeiro válido. A fila existe para não perder comandos rápidos entre dois passos.
+1. **Fila de direções** — enquanto houver itens na fila, descarta os que seriam inversão de 180° e aplica o primeiro válido. A fila existe para não perder comandos rápidos entre dois passos.
 2. **Nova cabeça** — `head = snake[0] + dir`.
-3. **Parede** — fora dos limites de `COLS`/`ROWS` encerra a partida (`deathAt = performance.now()`, retorna `false`).
+3. **Parede** — fora de `COLS`/`ROWS` encerra a partida (`deathAt = performance.now()`, retorna `false`).
 4. **Colisão com o corpo** — testa contra o corpo *sem a cauda* quando não come (a cauda sai da célula naquele passo) e contra o corpo inteiro quando come.
-5. **Movimento** — `prev` recebe o corpo antigo; o novo corpo é `[head, ...corpo]` comendo ou `[head, ...corpo sem a cauda]` sem comer.
-6. **Comer** — `+10` pontos, `speed = max(MIN_SPEED, speed - SPEED_STEP)`, nova fruta sorteada, e o callback `onEat` atualiza React, recorde e toca o som.
+5. **Colisão com habilidade ativa** — em vez de morrer, a cobra **corta**: mantém a cabeça e o trecho anterior ao gomo atingido (`[head, ...snake.slice(0, hitIndex)]`), paga `20 × gomos cortados` e chama `onCut` (som + vibração + placar). A habilidade continua até o fim do quadro (D6) e não é estendida pelo corte.
+6. **Movimento** — `prev` recebe o corpo antigo; o novo corpo é `[head, ...corpo]` comendo ou `[head, ...corpo sem a cauda]` sem comer.
+7. **Comer** — `+10` pontos, `speed = max(MIN_SPEED, speed - SPEED_STEP)` e nova fruta sorteada.
 
-`placeFood` monta a lista de células livres e sorteia uma; se o tabuleiro estiver cheio, cai no canto `{0, 0}` (situação de vitória não tratada — ver Limitações).
+### Barra de carga e habilidade
+
+| Situação | Efeito |
+| --- | --- |
+| `foodCount < 5` | cada fruta soma 1 na barra |
+| 5ª fruta | barra cheia, **nada acontece ainda** (D1) |
+| 6ª fruta | `foodCount = 0`, `isAbilityActive = true`, `abilityTimer = 2000` |
+| Durante a habilidade | intervalo ×0.5; encostar no corpo corta; a barra **esvazia em 5 degraus** |
+| Fim dos 2 s | volta ao normal; se morrer sem habilidade, é derrota |
+| Comer durante a habilidade | `foodCount` acompanha o próximo ciclo (não ativa de novo) |
+
+`placeFood` monta a lista de células livres e sorteia uma; se o tabuleiro estiver cheio, cai no canto `{0, 0}` (vitória não tratada — ver Limitações).
 
 ---
 
@@ -127,11 +163,13 @@ Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`,
 | Entrada | Tratamento |
 | --- | --- |
 | Setas / `W A S D` (maiúsc. e minúsc.) | `KEY_MAP` → `enqueue(dir)` |
-| `Espaço` | `paused` → `resume`; senão, fora de `running` → `start`; se `running` e não repetido → liga o turbo |
+| `Espaço` | `paused` → `resume`; fora de `running` → `start`; se `running` e não repetido → liga o turbo |
 | Soltar `Espaço` | desliga o turbo |
 | `Esc` | `running` → `pause`; `paused` → `resume` |
-| `blur` da janela | desliga o turbo (evita ficar acelerado ao trocar de aba) |
+| `blur` da janela | desliga o turbo |
 | D-pad na tela | `blur()` no botão + `enqueue(dir)` |
+| Botão **⚡ Segure para turbo** | `pointerdown` liga; `pointerup`/`pointercancel`/`pointerleave` desligam |
+| Arrasto no tabuleiro | acima de 24 px vale o eixo dominante; abaixo disso é tratado como toque |
 
 `enqueue` só aceita comandos com status `running`, ignora a inversão de 180°, ignora repetição da última direção e mantém no máximo 2 itens na fila.
 
@@ -146,29 +184,41 @@ Tudo é desenhado a cada quadro, nesta ordem:
 3. **Comida** — círculo com gradiente radial, `shadowBlur: 18` e pulso `1 + sin(now / 180) * 0.1`.
 4. **Cobra** — percorrida **da cauda para a cabeça** (a cabeça fica por cima). Cada segmento:
    - posição interpolada `prev[i] → snake[i]` por `t`;
-   - matiz `hue = 160 + k * 120` (`k = i / (n - 1)`), ou seja, verde na cabeça e roxo na cauda, com luminosidade caindo ao longo do corpo;
-   - cantos arredondados (`roundRect` nativo, com fallback manual via `arcTo` para navegadores antigos);
-   - cabeça levemente maior (`CELL - 2` contra `CELL - 4`), com brilho e olhos posicionados por `drawEyes` conforme a direção.
+   - matiz `hue = 160 + k * 120` (`k = i / (n - 1)`), verde na cabeça e roxo na cauda;
+   - cantos arredondados (`roundRect` nativo, com fallback via `arcTo`);
+   - cabeça levemente maior (`CELL - 2` contra `CELL - 4`), com brilho e olhos por `drawEyes`.
 5. **Flash de morte** — véu vermelho com alfa decaindo em 600 ms a partir de `deathAt`.
 
-O HUD, o overlay e o indicador de turbo são HTML/CSS por cima do canvas (`position: absolute`), não fazem parte do desenho.
+O HUD, o overlay e a borda de estado do tabuleiro são HTML/CSS sobre o canvas (`position: absolute`). A borda muda de cor: **laranja** durante a habilidade, **amarela** no turbo do Espaço, neutra no resto.
 
 ---
 
 ## Áudio
 
-`src/lib/sound.ts` sintetiza tudo com osciladores — nenhum arquivo de áudio é carregado. O módulo é importado só pelo client component, então nunca é executado no servidor.
+`src/lib/sound.ts` sintetiza tudo com osciladores — nenhum arquivo de áudio é carregado.
 
 - `getCtx()` cria/reaproveita um `AudioContext` (com fallback `webkitAudioContext`) e o retoma se estiver suspenso; retorna `null` quando o som está mudo, quando não há `window` (SSR) ou quando a API não existe.
-- `tone()` agenda um oscilador com envelope de ganho (ataque de 12 ms, decaimento até `0.0001`) e desconecta os nós no `onended`, evitando vazamento.
-- Efeitos: `eat` (blip ascendente duplo), `die` (queda grave em serra), `start` (arpejo de três notas), `pause` (descida suave), `click`.
+- `tone()` agenda um oscilador com envelope de ganho (ataque de 12 ms, decaimento até `0.0001`) e desconecta os nós no `onended`.
+- Efeitos: `eat` (blip ascendente duplo), `die` (queda grave em serra), `start` (arpejo de três notas), `pause` (descida suave), `cut` (corte com bônus), `ability` (ativação), `click`.
 - `isMuted` / `setMuted` / `toggleMuted` persistem a preferência em `localStorage.snakeMuted`.
+
+---
+
+## Tátil
+
+`src/lib/haptics.ts` expõe `haptic('light' | 'medium')`:
+
+1. tenta `@capacitor/core` + `@capacitor/haptics` (imports dinâmicos, só carregam em app nativo);
+2. se não houver plataforma nativa, usa `navigator.vibrate(15 | 40)` quando existir;
+3. iOS Safari não expõe a API — fica silencioso, sem erro.
+
+Chamado em `onCut` (`medium`) e `onAbility` (`light`).
 
 ---
 
 ## Constantes de ajuste
 
-Todas no topo de `src/components/SnakeGame.tsx`:
+Regras e ritmo em `src/game/engine.ts`; chave de persistência no componente.
 
 | Constante | Valor | Efeito |
 | --- | --- | --- |
@@ -178,9 +228,11 @@ Todas no topo de `src/components/SnakeGame.tsx`:
 | `MIN_SPEED` | `70` | Intervalo mínimo, ou seja, velocidade máxima |
 | `SPEED_STEP` | `3` | Quanto o intervalo cai por fruta comida |
 | `BOOST_FACTOR` | `0.5` | Multiplicador do intervalo no turbo |
+| `ABILITY_THRESHOLD` | `5` | Frutas para encher a barra |
+| `ABILITY_DURATION_MS` | `2000` | Duração da habilidade |
+| `ABILITY_SPEED_FACTOR` | `0.5` | Multiplicador do intervalo durante a habilidade (não acumula com o turbo) |
+| `CUT_BONUS_PER_SEGMENT` | `20` | Pontos por gomo cortado |
 | `BEST_KEY` | `snakeBest` | Chave do recorde no `localStorage` |
-
-Ajustes que mudam a sensação do jogo sem tocar em lógica: `BASE_SPEED` (ritmo inicial), `MIN_SPEED` (teto de dificuldade), `SPEED_STEP` (curva de aceleração) e `BOOST_FACTOR` (intensidade do turbo).
 
 ---
 
@@ -195,21 +247,46 @@ Todas as chamadas são protegidas por `try/catch`: sem `localStorage` o jogo rod
 
 ---
 
+## Testes
+
+`src/game/engine.test.ts` cobre as regras sem navegador:
+
+```bash
+npm test   # node --test "src/**/*.test.ts"
+```
+
+Casos: barra enche na 5ª fruta e ativa na 6ª, aceleração até o mínimo, `stepInterval` (turbo ×0.5 e sem acúmulo com a habilidade), morte por parede e por corpo, corte com bônus, `placeFood` fora da cobra, contagem da barra e descarte de inversão de 180°.
+
+---
+
+## PWA e empacotamento nativo
+
+| Arquivo | Função |
+| --- | --- |
+| `src/app/manifest.ts` | `/manifest.webmanifest`: `standalone`, `portrait`, cores do tema |
+| `public/sw.js` | Service worker: network-first na navegação, cache-first em `/_next/static`, SWR no resto |
+| `public/offline.html` | Fallback sem rede |
+| `src/components/PwaRegister.tsx` | Registra o SW só em produção |
+| `capacitor.config.ts` | `appId`, `appName`, `webDir: 'out'` |
+
+Detalhes de instalação, comandos do Capacitor e o que roda em qual máquina estão em [`nativo.md`](./nativo.md).
+
+---
+
 ## Pontos de extensão
 
-Ideias que cabem na arquitetura atual sem refatoração relevante:
-
-- **Comida especial** (bônus com tempo limitado): um segundo campo em `Game` + ramo em `step()` e um desenho extra.
+- **Comida especial** (bônus com tempo limitado): segundo campo em `Game` + ramo em `step()` e um desenho extra.
 - **Obstáculos ou níveis**: lista de células bloqueadas consultada nos testes de colisão e em `placeFood`.
-- **Bordas com wrap**: trocar o teste de parede por aritmética modular — atenção à interpolação em `prev`, que precisaria tratar o salto.
-- **Swipe em touch**: adicionar `touchstart`/`touchend` chamando `enqueue`, reaproveitando o d-pad em telas pequenas.
+- **Bordas com wrap**: trocar o teste de parede por aritmética modular — atenção à interpolação em `prev`.
 - **Pausa automática ao perder foco**: o handler de `blur` já existe; hoje ele só desliga o turbo.
 - **Volume geral**: parâmetro em `tone()` multiplicando o `volume` de cada efeito.
+- **Modos de dificuldade** com recordes separados.
 
 ## Limitações conhecidas
 
-- **Sem vitória**: se a cobra preencher o tabuleiro, `placeFood` posiciona a fruta em `{0, 0}` em vez de encerrar com vitória.
-- **Sem swipe**: em telas de toque, o controle é pelo d-pad.
+- **Sem vitória**: se a cobra preencher o tabuleiro, `placeFood` posiciona a fruta em `{0, 0}`.
 - **Sem wrap de bordas**: encostar na parede encerra a partida.
-- **`public/snake.html` legado**: a versão em HTML único (servida em `/snake.html`) não tem pausa, turbo nem som, e não recebe as melhorias da versão React.
 - **Recorde único**: não há separação por modo ou dificuldade.
+- **Sem build nativo publicado**: o Capacitor está configurado, mas `android/` e `ios/` ainda não existem (E4-03/E4-04 do backlog).
+- **Service worker só em produção**: em `npm run dev` não há cache nem modo offline.
+- **`public/snake.html` legado**: a versão em HTML único não tem pausa, turbo, habilidade nem som.

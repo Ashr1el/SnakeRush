@@ -13,10 +13,16 @@ Existem três cópias independentes da mesma versão. Use a mais conveniente:
 | Camada | Onde | Garantia |
 | --- | --- | --- |
 | **Git** | branch `developer` em `https://github.com/Ashr1el/SnakeRush` | Histórico completo, comparação de diffs, `git revert` |
-| **Backup local** | `.backup/v1-2026-10-27/` na raiz do projeto (não versionado) | Cópia byte a byte **da v1 (Vite)** com `MANIFEST.sha256` verificável |
-| **Snapshot no ai-memory** | páginas `snapshots/2026-10-27-jogo-da-cobrinha-v1*` | Cópia em texto **da v1 (Vite)**, sobrevive à perda da máquina |
+| **Backup local** | `.backup/v1-2026-10-27/`, `.backup/v2.1-pre-habilidade-2026-10-27/`, `.backup/v3-2026-10-27/` (não versionados) | Cópias byte a byte com `MANIFEST.sha256` verificável |
+| **Snapshot no ai-memory** | páginas `snapshots/*` | Cópia em texto, sobrevive à perda da máquina |
 
-O backup local e o snapshot no ai-memory são complementares: o primeiro é exato e rápido; o segundo é legível e independente do disco. Ambos congelam a **v1**; a migração para Next.js (v2) vive no Git.
+O backup local e o snapshot no ai-memory são complementares: o primeiro é exato e rápido; o segundo é legível e independente do disco.
+
+| Versão | Conteúdo | Tag |
+| --- | --- | --- |
+| v1 | React + Vite | `629c0a5` |
+| v2.1 | Next.js antes da habilidade (checkpoint) | `checkpoint-2026-10-27-pre-habilidade` |
+| v3 | Habilidade + PWA + export estático | `v3` |
 
 ---
 
@@ -76,7 +82,14 @@ git revert --no-commit <hash-da-migracao> && git commit -m "revert: volta para V
 
 ## Restaurar pelo backup local
 
-Os comandos estão na seção [Voltar da v2 (Next.js) para a v1 (Vite)](#voltar-da-v2-nextjs-para-a-v1-vite) — o backup em `.backup/` é sempre o da v1. O `MANIFEST.sha256` usa caminhos relativos à raiz, então rode o `sha256sum -c` a partir dela.
+O backup em `.backup/` guarda sempre uma versão completa do projeto **daquela tag**. O `MANIFEST.sha256` usa caminhos relativos à raiz, então rode a verificação a partir dela:
+
+```bash
+cd .backup/v3-2026-10-27
+sha256sum -c MANIFEST.sha256
+```
+
+Para voltar o código a uma versão específica, copie os arquivos por cima da working tree (ou, melhor, use `git checkout v3 -- .` se a tag existir no repositório).
 
 ## Restaurar pelo snapshot no ai-memory
 
@@ -115,14 +128,15 @@ Snapshots são imutáveis: corrigir um snapshot "antigo" destrói a única coisa
 ```bash
 git status                     # conferir o que mudou
 npm run typecheck              # typecheck antes de commitar
-npm run build                  # build de produção (opcional, mas recomendado)
+npm test                       # testes do núcleo
+npm run build                   # build estático (opcional, mas recomendado)
 git add -A
 git commit -m "feat: <descrição curta>"
-git push origin developer
+git push origin <branch-de-trabalho>
 ```
 
-- A branch de trabalho é `developer` (também é a padrão do repositório).
-- `node_modules/`, `.next/`, `out/`, `next-env.d.ts` e `.backup/` estão no `.gitignore` — não entram no repositório.
+- A branch de produção é `developer`; push nela dispara deploy automático na Vercel e **exige ordem explícita** (`AGENTS.md`).
+- `node_modules/`, `.next/`, `out/`, `next-env.d.ts`, `.backup/`, `android/` e `ios/` estão no `.gitignore` — não entram no repositório.
 - Mensagens seguem o padrão `tipo: descrição` (`feat`, `fix`, `chore`, `docs`, `refactor`).
 
 ---
