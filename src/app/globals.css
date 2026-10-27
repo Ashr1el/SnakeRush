@@ -123,6 +123,21 @@ body {
     rgba(244, 114, 182, 0.75)
   );
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* turbo ativo: a própria borda do tabuleiro acende em amarelo */
+.board-wrap.is-turbo {
+  background: linear-gradient(
+    135deg,
+    rgba(251, 191, 36, 0.95),
+    rgba(253, 230, 138, 0.9),
+    rgba(245, 158, 11, 0.95)
+  );
+  box-shadow:
+    0 0 0 1px rgba(253, 230, 138, 0.7),
+    0 0 30px rgba(251, 191, 36, 0.55),
+    0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
 canvas {
@@ -132,31 +147,6 @@ canvas {
   aspect-ratio: 1 / 1;
   border-radius: 14px;
   touch-action: none;
-}
-
-.turbo {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 1;
-  padding: 6px 12px;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #1c1200;
-  background: linear-gradient(135deg, var(--amber), #fde68a);
-  box-shadow: 0 0 22px rgba(251, 191, 36, 0.75);
-  animation: turboPulse 0.5s ease-in-out infinite alternate;
-}
-
-@keyframes turboPulse {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.08);
-  }
 }
 
 /* Overlay */

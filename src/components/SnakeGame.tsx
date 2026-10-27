@@ -462,9 +462,8 @@ export default function SnakeGame() {
         </button>
       </div>
 
-      <div className="board-wrap">
+      <div className={`board-wrap${boost ? ' is-turbo' : ''}`}>
         <canvas ref={canvasRef} width={W} height={H} aria-label="Tabuleiro do jogo" />
-        {boost && status === 'running' && <div className="turbo">⚡ TURBO</div>}
 
         {status !== 'running' && (
           <div className="overlay">
