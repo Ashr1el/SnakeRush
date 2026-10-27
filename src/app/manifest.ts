@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Snake Rush',
     short_name: 'Snake Rush',
     description:
-      'Snake Rush em Canvas: turbo, habilidade de 2 s com auto-corte, pausa e efeitos sonoros sintetizados.',
+      'Snake Rush em Canvas: recursos vermelhos e laranjas, habilidade de 4 s com auto-corte, pausa e efeitos sonoros sintetizados.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

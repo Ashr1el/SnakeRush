@@ -1,7 +1,7 @@
 # Dossiê do projeto — SnakeRush
 
 > Documento único de especificação. Consolida README, `docs/` e o código-fonte em um só lugar.
-> **Versão documentada:** v2.0.0 (Next.js 16) + mecânica D1–D8 (branch `feat/habilidade-e-mobile`) · **Branches:** `developer`, `feat/habilidade-e-mobile` · **Última revisão:** 2026-10-27
+> **Versão documentada:** v2.0.0 (Next.js 16) + mecânica D1–D9 (branch `feat/habilidade-e-mobile`) · **Branches:** `developer`, `feat/habilidade-e-mobile` · **Última revisão:** 2026-10-27
 
 ---
 
@@ -108,7 +108,7 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 │   │   ├── SnakeGame.tsx        # client component: loop, entrada, render, HUD
 │   │   └── PwaRegister.tsx      # registra o service worker em produção
 │   ├── game/
-│   │   ├── engine.ts            # núcleo puro: Game, step(), passo/intervalo, fruta
+│   │   ├── engine.ts            # núcleo puro: Game, step(), passo/intervalo, recursos
 │   │   └── engine.test.ts       # testes do núcleo (npm test)
 │   └── lib/
 │       ├── sound.ts             # efeitos sonoros (Web Audio) + mute persistido
@@ -134,7 +134,7 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 
 1. **Nenhuma API de navegador no render.** `localStorage` e `AudioContext` só em `useEffect` ou em handlers.
 2. **Hidratação sem divergência.** `best` e `muted` começam em `0`/`false` no servidor e no primeiro render do cliente; o valor real do storage entra em `useEffect` de montagem.
-3. **Aleatoriedade fora do HTML.** O `Game` inicial (fruta sorteada) vive em `useRef` e só afeta o canvas.
+3. **Aleatoriedade fora do HTML.** O `Game` inicial (recurso sorteado) vive em `useRef` e só afeta o canvas.
 4. **`reactStrictMode: true`** — efeitos precisam ser idempotentes e com cleanup (o loop cancela o RAF; leitura de storage é read-only).
 
 ### Metadados da página (`layout.tsx`)
@@ -157,19 +157,26 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 ```ts
 type Cell = { x: number; y: number };
 type Dir = { x: number; y: number };
+type FoodKind = 'normal' | 'special';
 type Status = 'idle' | 'running' | 'paused' | 'over';
+
+interface Food {
+  kind: FoodKind;  // 'normal' = vermelho (1 célula); 'special' = laranja (bloco 2×2)
+  cells: Cell[];   // 1 célula no vermelho, 4 no laranja
+}
 
 interface Game {
   snake: Cell[];   // corpo; índice 0 = cabeça
   prev: Cell[];    // posições do passo anterior (interpolação visual)
   dir: Dir;        // direção atual
   queue: Dir[];    // até 2 direções pendentes
-  food: Cell;
+  food: Food;
+  spawns: number;  // recursos gerados (sequência 4 vermelhos : 1 laranja)
   score: number;
   speed: number;   // ms por passo (diminui ao comer)
   acc: number;     // acumulador de tempo do loop
   deathAt: number; // timestamp da morte (flash)
-  foodCount: number;        // carga da barra de habilidade (0 a 5)
+  charge: number;  // laranjas coletados no ciclo (0 a 5)
   isAbilityActive: boolean; // modo especial: turbo + auto-corte
   abilityTimer: number;     // ms restantes da habilidade
 }
@@ -196,7 +203,7 @@ interface Game {
 
 ## 7. Constantes de ajuste
 
-Todas no topo de `src/components/SnakeGame.tsx`:
+Regras e ritmo em `src/game/engine.ts`; `BEST_KEY` fica no componente.
 
 | Constante | Valor | Efeito |
 | --- | --- | --- |
@@ -204,13 +211,17 @@ Todas no topo de `src/components/SnakeGame.tsx`:
 | `CELL` | `20` | px por célula (canvas lógico `400×400`) |
 | `BASE_SPEED` | `130` | Intervalo inicial entre passos (ms) |
 | `MIN_SPEED` | `70` | Intervalo mínimo (velocidade máxima) |
-| `SPEED_STEP` | `3` | Quanto o intervalo cai por fruta |
+| `SPEED_STEP` | `3` | Quanto o intervalo cai por recurso |
 | `BOOST_FACTOR` | `0.5` | Multiplicador do intervalo durante o turbo |
-| `ABILITY_THRESHOLD` | `5` | Frutas para encher a barra de carga |
-| `ABILITY_DURATION_MS` | `2000` | Duração da habilidade especial (2 s) |
+| `SPECIAL_EVERY` | `5` | 1 recurso laranja a cada 5 gerados (4 vermelhos : 1 laranja) |
+| `ABILITY_THRESHOLD` | `5` | Laranjas para ativar a habilidade |
+| `ABILITY_DURATION_MS` | `4000` | Duração da habilidade especial (4 s) |
 | `ABILITY_SPEED_FACTOR` | `0.5` | Multiplicador do intervalo durante a habilidade |
+| `ABILITY_GROWTH_FACTOR` | `3` | Crescimento ×3 durante a habilidade |
 | `CUT_BONUS_PER_SEGMENT` | `20` | Bônus por segmento cortado (200% de 10) |
-| `BEST_KEY` | `"snakeBest"` | Chave do recorde no `localStorage` |
+| `POINTS_NORMAL` / `POINTS_SPECIAL` | `10` / `40` | Pontos por recurso vermelho / bloco laranja |
+| `GROWTH_NORMAL` / `GROWTH_SPECIAL` | `1` / `4` | Gomos por recurso vermelho / bloco laranja |
+| `BEST_KEY` | `"snakeBest"` | Chave do recorde no `localStorage` (componente) |
 
 Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_STEP`, `BOOST_FACTOR`.
 
@@ -218,22 +229,25 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 
 ## 8. Regras do jogo
 
-- Cada fruta vale **10 pontos** e faz a cobra crescer um segmento.
-- Cada fruta reduz o intervalo entre passos em **3 ms**, até o piso de **70 ms**.
-- A fruta sempre nasce em uma célula livre (`placeFood` sorteia entre as livres).
+- A cada **5 recursos gerados**, 4 são **vermelhos** (1 célula) e 1 é **laranja** (bloco 2×2, 4 células) — em ciclo: 4 vermelhos, 1 laranja, 4 vermelhos, 1 laranja…
+- **Vermelho:** 10 pontos, +1 gomo, −3 ms no intervalo entre passos.
+- **Laranja:** 40 pontos, +4 gomos, −3 ms no intervalo. Encostar em **qualquer** das 4 células coleta o bloco inteiro.
+- O recurso sempre nasce em área livre (`placeFood` sorteia entre as células — ou blocos 2×2 — livres). Tabuleiro sem espaço para 2×2 → o laranja cai para 1 célula livre.
 - Bater na parede encerra a partida — **não há wrap** de bordas. Colidir com o próprio corpo também encerra, **exceto** durante a habilidade (auto-corte).
 - O recorde é atualizado durante a partida e exibido no HUD.
-- Não há condição de vitória: tabuleiro cheio → fruta cai em `{0,0}`.
+- Não há condição de vitória: tabuleiro cheio → recurso cai em `{0,0}`.
 
-### Barra de carga e habilidade especial (D1–D8)
+### Laranjas, habilidade especial e crescimento (D1–D9)
 
 | Regra | Comportamento |
 | --- | --- |
-| Carga | Cada fruta soma **1** em `foodCount`, até **5** (barra cheia na 5ª fruta) |
-| Ativação | A recolha **seguinte** (6ª do ciclo) ativa a habilidade e zera `foodCount` |
-| Duração | `2000` ms de jogo; a pausa **não** consome o tempo |
+| Carga | **Só o laranja** conta: cada bloco soma **1** em `charge` (máximo 5). Vermelho não carrega a barra (D9) |
+| Ativação | Ao coletar o **5º laranja** a habilidade ativa na hora e `charge` volta a 0 |
+| Duração | `4000` ms de jogo; a pausa **não** consome o tempo |
 | Velocidade | Intervalo entre passos `×0.5` (`ABILITY_SPEED_FACTOR`); **não** acumula com o turbo do `Espaço` |
+| Crescimento | Durante a habilidade, **crescimento ×3**: vermelho +3 gomos, laranja +12 (D9) |
 | Expiração | Só no início do quadro seguinte (`D6`) — vale até o fim do quadro corrente |
+| Emenda | Se a barra chegar a 5 durante a habilidade, a próxima começa assim que a atual terminar (sem perder carga) |
 | Auto-corte | Colisão com o corpo durante a habilidade **não** mata: mantém a cabeça + o trecho anterior ao gomo atingido |
 | Bônus | `20` pontos por segmento cortado (`CUT_BONUS_PER_SEGMENT`), somados ao placar e ao recorde |
 | Sem habilidade | Colisão com o corpo segue sendo derrota |
@@ -245,9 +259,10 @@ Detalhe de implementação: a colisão é detectada **antes** de a nova cabeça 
 1. **Fila de direções** — descarta inversões de 180° em relação à direção atual e aplica a primeira válida (a fila evita perder comandos rápidos entre passos).
 2. **Nova cabeça** — `head = snake[0] + dir`.
 3. **Parede** — fora de `COLS`/`ROWS` → `deathAt = performance.now()` e retorna `false`.
-4. **Colisão com o corpo** — testa o corpo **sem a cauda** quando não come (a cauda deixa a célula naquele passo) e o corpo inteiro quando come.
-5. **Movimento** — `prev = corpo antigo`; novo corpo = `[head, ...corpo]` (comeu) ou `[head, ...corpo sem cauda]`.
-6. **Comer** — `+10` pontos, `speed = max(MIN_SPEED, speed - SPEED_STEP)`, nova fruta e callback `onEat` (React + recorde + som).
+4. **Recurso** — `eat` é verdadeiro quando a cabeça entra em qualquer célula de `food.cells`.
+5. **Colisão com o corpo** — testa o corpo **sem a cauda** quando não come (a cauda deixa a célula naquele passo) e o corpo inteiro quando come.
+6. **Movimento** — `prev = corpo antigo`; novo corpo = `[head, ...corpo]` + duplicação da cauda (crescimento) ou `[head, ...corpo sem cauda]`.
+7. **Comer** — pontos e crescimento do tipo, `speed = max(MIN_SPEED, speed - SPEED_STEP)`, novo recurso, possível ativação da habilidade e callback `onEat(score, kind)`.
 
 ---
 
@@ -313,7 +328,7 @@ Ordem de desenho a cada quadro:
 
 1. **Fundo** — gradiente linear diagonal `#111a3f → #161247 → #221449`.
 2. **Grade** — pontos `2×2` px por célula, `rgba(255,255,255,0.05)`.
-3. **Comida** — círculo em gradiente radial, `shadowBlur: 18`, pulso `1 + sin(now/180) * 0.1`, cores `#ffd6e0 / #ff6b8a / #e94560`.
+3. **Recurso** — vermelho (1 célula): círculo em gradiente radial, `shadowBlur: 18`, pulso `1 + sin(now/180) * 0.1`, cores `#ffd6e0 / #ff6b8a / #e94560`. Laranja (bloco 2×2): cada célula é um quadrado arredondado com gradiente `#fed7aa → #fb923c → #ea580c`, `shadowBlur: 20` e um núcleo claro pulsante no centro do bloco.
 4. **Cobra** — percorrida **da cauda para a cabeça** (cabeça por cima). Por segmento:
    - posição interpolada `prev[i] → snake[i]` por `t`;
    - matiz `hue = 160 + k * 120` (`k = i / (n-1)`): verde na cabeça, roxo na cauda, luminosidade caindo;
@@ -374,7 +389,7 @@ Responsividade: `@media (max-width: 420px)` reduz d-pad (56 px) e padding dos ca
 
 O turbo **não** usa badge/pílula. Ele é comunicado pela **borda do tabuleiro**: `.board-wrap` recebe `is-turbo` enquanto `boost` é verdadeiro, acendendo em amarelo e voltando ao gradiente normal (com transição) ao soltar a tecla, pausar, morrer, sair, resetar ou perder o foco.
 
-A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Carga** no HUD mostra 5 pips: preenchidos conforme `foodCount` e cheios enquanto a habilidade está ativa.
+A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Laranjas** no HUD mostra 5 pips: preenchidos conforme `charge` (só o bloco laranja conta) e esvaziando em 5 degraus enquanto a habilidade está ativa.
 
 ### Acessibilidade
 
@@ -504,18 +519,18 @@ O backup local e a página do ai-memory de cada versão:
 
 ## 20. Limitações conhecidas
 
-- **Sem vitória:** tabuleiro cheio posiciona a fruta em `{0,0}` em vez de encerrar com vitória.
+- **Sem vitória:** tabuleiro cheio posiciona o recurso em `{0,0}` em vez de encerrar com vitória.
 - **Sem wrap de bordas:** encostar na parede encerra a partida.
 - **Recorde único:** não há separação por modo ou dificuldade.
 - **`snake.html` desatualizado** em relação à versão React.
-- **Sem build nativo ainda:** Capacitor (Android/iOS) está especificado no `Roadmap`/`BACKLOG` (E4), mas não implementado. Hoje a instalação é via PWA.
+- **Sem build nativo ainda:** Capacitor (Android/iOS) está configurado (`capacitor.config.ts`), mas os projetos `android/` e `ios/` ainda não foram gerados (E4-03). Hoje a instalação é via PWA.
 - **Service worker só em produção:** em `npm run dev` não há cache nem modo offline.
 
 ## 21. Pontos de extensão
 
 Ideias que cabem na arquitetura atual sem refatoração relevante:
 
-- **Comida especial** (bônus temporário): campo extra em `Game`, ramo em `step()` e um desenho adicional.
+- **Outros formatos de recurso especial:** `Food.cells` já aceita qualquer conjunto de células; a geração está isolada em `placeFood`.
 - **Obstáculos/níveis:** lista de células bloqueadas consultada em colisão e em `placeFood`.
 - **Bordas com wrap:** trocar o teste de parede por aritmética modular (atenção à interpolação em `prev`).
 - **Pausa automática ao perder foco:** o handler de `blur` já existe; hoje ele só desliga o turbo.
@@ -610,13 +625,18 @@ npm test
 
 | Caso | O que garante |
 | --- | --- |
-| Barra e ativação | 5ª fruta enche, 6ª ativa e zera a barra |
-| Aceleração | `speed` cai por fruta e respeita `MIN_SPEED` |
+| Sequência de geração | 4 vermelhos e 1 laranja, em ciclo |
+| Bloco laranja | 4 células em 2×2, dentro do tabuleiro e fora da cobra; fallback de 1 célula |
+| Barra e ativação | vermelho não carrega; 5º laranja ativa na hora e zera a barra |
+| Pontos | vermelho 10, laranja 40 |
+| Crescimento | vermelho +1, laranja +4; durante a habilidade ×3 (3 e 12) |
+| Aceleração | `speed` cai por recurso e respeita `MIN_SPEED` |
 | `stepInterval` | turbo ×0.5 e habilidade ×0.5 **sem acúmulo** (D3) |
 | Morte | parede e corpo sem habilidade encerram a partida |
 | Corte | com habilidade, corta no gomo atingido e paga 20 pts por gomo |
 | `placeFood` | nunca sorteia célula ocupada; tabuleiro cheio cai em `{0,0}` |
-| `abilityPips` | contagem 5 → 1 durante os 2 s |
+| `abilityPips` | carga normal e contagem 5 → 1 durante os 4 s |
+| `advanceAbility` | expira no fim e emenda se a barra encheu |
 | Fila | inversão de 180° é descartada |
 
 Os testes usam `node --test` sobre TypeScript (type stripping do Node 22+), sem Vitest/Jest. O `tsconfig` habilita `allowImportingTsExtensions` para o import `./engine.ts`.

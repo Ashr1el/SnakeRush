@@ -157,7 +157,7 @@ body {
     0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
-/* habilidade ativa: a moldura troca para laranja durante os 2 s de efeito */
+/* habilidade ativa: a moldura troca para laranja durante os 4 s de efeito */
 .board-wrap.is-ability {
   background: linear-gradient(135deg, #fdba74, #fb923c, #f97316);
   box-shadow:

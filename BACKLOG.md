@@ -8,11 +8,18 @@
 
 **2026-10-27 — ondas 1 a 6 na branch `feat/habilidade-e-mobile`:**
 
-- **Onda 1:** E0-01 … E0-04 concluídas. Baseline verde e decisões D1–D8 aprovadas.
-- **Onda 2:** E1-01 … E1-06, E2-01, E2-02, E2-04 e E2-03 (barra esvaziando em 5 degraus durante os 2 s) concluídas.
+- **Onda 1:** E0-01 … E0-04 concluídas. Baseline verde e decisões D1–D8 aprovadas (D9 chegou depois, na revisão da mecânica).
+- **Onda 2:** E1-01 … E1-06, E2-01, E2-02, E2-04 e E2-03 (barra esvaziando em 5 degraus durante a habilidade) concluídas.
 - **Onda 3:** E3-01 … E3-05 concluídas — manifest, ícones (`npm run icons`), service worker, tela cheia com `safe-area`, botão de turbo no toque e swipe no tabuleiro.
 - **Onda 4 (E4):** E4-01 (export estático → `out/`), E4-02 (`capacitor.config.ts` com `webDir: 'out'`) e E4-05 (haptics) concluídas. E4-03/E4-04 **bloqueadas por regra**: Android não roda nesta máquina — comandos e checklist entregues em `docs/nativo.md`.
-- **Onda 5 (E5):** núcleo extraído para `src/game/engine.ts` (E5-01), 9 testes automatizados em `src/game/engine.test.ts` (`npm test`), documentação atualizada (E5-02) e snapshot `v3` (E5-03).
+- **Onda 5 (E5):** núcleo extraído para `src/game/engine.ts` (E5-01), 16 testes automatizados em `src/game/engine.test.ts` (`npm test`), documentação atualizada (E5-02) e snapshot `v3` (E5-03).
+
+**2026-10-27 — revisão da mecânica de recursos (D9):**
+
+- A cada 5 recursos gerados, 4 são **vermelhos** (1 célula, 10 pts, +1 gomo) e 1 é **laranja** (bloco **2×2**, 40 pts, +4 gomos).
+- **Só o laranja** carrega a barra (1 por bloco); 5 laranjas ativam a habilidade **na hora**.
+- Habilidade dura **4 s** (dobro) e o crescimento durante ela é **×3** (vermelho +3, laranja +12).
+- Revisão refletida em `engine.ts`, `engine.test.ts`, `DOSSIER.md`, `README.md` e `docs/arquitetura.md`.
 
 `tsc --noEmit`, `next build` e `node --test` verdes; `out/` contém `index.html`, `404.html`, `manifest.webmanifest`, `sw.js`, `offline.html` e os ícones.
 
@@ -53,14 +60,14 @@ Ponto de retorno anterior: tag `checkpoint-2026-10-27-pre-habilidade`, `.backup/
 Resolve a tabela [Decisões pendentes](#decisões-pendentes-antes-de-codar). Sem isso, E1-02/E1-03 ficam bloqueados.
 - [x] Registrar as respostas em `DOSSIER.md` (seção de regras) e no topo deste backlog
 - **Aceite:** nenhuma tarefa de E1 depende de interpretação.
-- **Aprovado em 2026-10-27:** usuário escolheu a opção 1 — todas as propostas D1–D8 valem como especificação.
+- **Aprovado em 2026-10-27:** usuário escolheu a opção 1 — todas as propostas D1–D8 valem como especificação. **D9** foi adicionada na revisão dos recursos (vermelho/laranja).
 
 ### E0-03 · Criar branch de trabalho · **P** ✅
 - [x] `git checkout -b feat/habilidade-e-mobile`
 - **Aceite:** `developer` permanece intocada até a revisão final (evita deploy automático — ver `AGENTS.md`).
 
 ### E0-04 · Constantes da nova mecânica · **P** ✅
-- [x] Em `src/components/SnakeGame.tsx`, extrair: `ABILITY_THRESHOLD = 5`, `ABILITY_DURATION_MS = 2000`, `ABILITY_SPEED_FACTOR` (ver decisão D2), `CUT_BONUS_PER_SEGMENT = 20`, `CUT_BONUS_SFX`
+- [x] Constantes extraídas para `src/game/engine.ts`: `ABILITY_THRESHOLD = 5`, `ABILITY_DURATION_MS = 4000`, `ABILITY_SPEED_FACTOR`, `ABILITY_GROWTH_FACTOR`, `SPECIAL_EVERY`, `POINTS_NORMAL/SPECIAL`, `GROWTH_NORMAL/SPECIAL`, `CUT_BONUS_PER_SEGMENT = 20`
 - **Aceite:** nenhum número mágico novo espalhado pelo arquivo.
 
 ---
@@ -70,27 +77,27 @@ Resolve a tabela [Decisões pendentes](#decisões-pendentes-antes-de-codar). Sem
 > Arquivo principal: `src/components/SnakeGame.tsx`. A lógica vive em `step()` + loop (`frame()`) + `Game`.
 
 ### E1-01 · Estender o modelo `Game` · **P** 🔒 E0-04
-- [x] Adicionar `foodCount: number`, `isAbilityActive: boolean`, `abilityTimer: number`
-- [x] Inicializar em `createGame()` (`0`, `false`, `0`)
+- [x] Adicionar `food: Food` (`kind` + `cells`), `spawns`, `charge`, `isAbilityActive` e `abilityTimer`
+- [x] Inicializar em `createGame()` (`0`, `0`, `false`, `0`)
 - **Aceite:** `tsc --noEmit` passa; `reset`/`exitToTitle`/`start` recriam o estado zerado.
 
 ### E1-02 · Contador da barra (0→5) · **P** 🔒 E0-02
-- [x] Em `step()`, no ramo "comeu": `foodCount++`
-- [x] Se `foodCount >= ABILITY_THRESHOLD` **e** esta é a recolha seguinte (ver decisão D1): ativar habilidade
-- [x] Ao ativar: `isAbilityActive = true`, `abilityTimer = ABILITY_DURATION_MS`, `foodCount = 0`
-- **Aceite:** 5 frutas enchem a barra; a 6ª ativa; o ciclo recomeça em 0; nunca passa de 5 na UI.
+- [x] Em `step()`, no ramo "comeu": se o recurso for `special` (laranja), `charge++`
+- [x] Se `charge >= ABILITY_THRESHOLD`: ativar habilidade **na hora** (D9)
+- [x] Ao ativar: `isAbilityActive = true`, `abilityTimer = ABILITY_DURATION_MS`, `charge = 0`
+- **Aceite:** 4 vermelhos + 1 laranja por ciclo; 5 laranjas ativam; o ciclo recomeça em 0; nunca passa de 5 na UI.
 
 ### E1-03 · Aceleração de 200% durante a habilidade · **M** 🔒 E0-02
 - [x] No cálculo de `interval` (loop **e** dentro do `while`), aplicar `ABILITY_SPEED_FACTOR` quando `isAbilityActive`
 - [x] Garantir que a mudança de intervalo **não** reposiciona o acumulador de forma a causar salto
 - [x] Definir precedência com o turbo do `Espaço` (decisão D3)
-- **Aceite:** durante 2 s os passos ficam ~2× mais rápidos; ao terminar, o ritmo volta exatamente ao anterior (`speed` base preservado).
+- **Aceite:** durante os 4 s os passos ficam ~2× mais rápidos; ao terminar, o ritmo volta exatamente ao anterior (`speed` base preservado).
 
 ### E1-04 · Temporizador no loop · **P** 🔒 E1-02
 - [x] A cada quadro: se ativo, `abilityTimer -= dt`; se `<= 0`, desligar e manter `abilityTimer = 0`
 - [x] Pausa: **não** consumir tempo (hoje `dt` só é aplicado ao `acc` em `running` — replicar a regra)
 - [x] Morte/reset/saída/troca de foco: desligar a habilidade
-- **Aceite:** 2 s reais de jogo; pausar congela o contador; sair do jogo não deixa resíduo.
+- **Aceite:** 4 s reais de jogo; pausar congela o contador; sair do jogo não deixa resíduo.
 
 ### E1-05 · Colisão: auto-corte em vez de morte · **G** 🔒 E1-01
 Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça entrar no corpo.
@@ -113,7 +120,7 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ### E1-07 · Testes manuais dirigidos · **M** 🔒 E1-06
 - [ ] Cenários: ativar e cortar; cortar sem habilidade (morte); cortar no último ms; pausar durante habilidade; habilidade expirando no mesmo passo de uma colisão
 - [ ] Cenário de borda: cobra de 3 segmentos, colisão na cauda (não deve cortar errado)
-- [x] Cobertura automatizada dos cenários de regra em `src/game/engine.test.ts` (`npm test`): ativação na 6ª fruta, corte com bônus, morte por corpo sem habilidade, parede, barra e fila de direções
+- [x] Cobertura automatizada dos cenários de regra em `src/game/engine.test.ts` (`npm test`): sequência 4 vermelhos : 1 laranja, bloco 2×2, ativação no 5º laranja, crescimento 1/4 e ×3, corte com bônus, morte por corpo sem habilidade, parede, barra e fila de direções
 - **Aceite:** todos os cenários registrados neste arquivo com resultado.
 - **Pendente:** os cenários dependentes de jogar (timing do último ms, pausa no meio da habilidade) exigem sessão manual.
 
@@ -123,16 +130,16 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 
 ### E2-01 · Barra de 5 unidades no canto superior esquerdo · **M** 🔒 E1-02
 - [x] Componente no HUD (ou dentro de `.board-wrap`, canto sup. esq.) com 5 "pips"
-- [x] Preenchidos = `foodCount`; estado ativo = 5/5 pulsando ou dourado
-- [x] `aria-label`/`role="progressbar"` com `aria-valuenow` = `foodCount`, `aria-valuemax` = 5
+- [x] Preenchidos = `charge` (só laranja conta); durante a habilidade a barra esvazia em 5 degraus
+- [x] `aria-label`/`role="progressbar"` com `aria-valuenow` = pips, `aria-valuemax` = 5
 - [x] Responsivo: não empurrar o HUD em telas ≤420 px
-- **Aceite:** reflete o estado em tempo real, sem re-render por quadro (só quando `foodCount` muda).
+- **Aceite:** reflete o estado em tempo real, sem re-render por quadro (só quando a carga ou o timer mudam).
 
 ### E2-02 · Indicador de habilidade (usar a borda) · **P** 🔒 E1-02
 - [x] Reaproveitar `.board-wrap.is-turbo` (âmbar) para o modo especial
 - [x] Distinguir visualmente turbo do `Espaço` e habilidade (ex.: brilho mais intenso/pulso na habilidade)
 - [x] Remover qualquer badge/pílula remanescente (já não existe)
-- **Aceite:** ao ativar, a borda acende por 2 s; ao expirar, volta ao gradiente normal com transição.
+- **Aceite:** ao ativar, a borda acende pelos 4 s de efeito; ao expirar, volta ao gradiente normal com transição.
 
 ### E2-03 · Contagem regressiva discreta · **P** 🔒 E2-02
 - [x] Opcional: esmaecer a borda conforme `abilityTimer` cai (sem texto na tela)
@@ -216,7 +223,7 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 
 ### E5-01 · Revisão de arquitetura · **M** ✅
 - [x] `SnakeGame.tsx` (~700 linhas): extraído `src/game/engine.ts` (puro, sem React/DOM)
-- [x] `src/game/engine.test.ts` com 9 casos automatizados (`npm test`)
+- [x] `src/game/engine.test.ts` com 16 casos automatizados (`npm test`)
 - **Aceite:** build/typecheck verdes e nenhuma regressão de comportamento.
 - **Nota:** `game/draw.ts` não foi extraído — o desenho depende de constantes de tela (`CELL`) e não ganhou testabilidade com a mudança. Fica como extensão.
 
@@ -240,18 +247,19 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ## Decisões pendentes (antes de codar)
 
 A spec do `Roadmap` tem pontos que se contradizem ou não fecham. Proposta padrão em **negrito** — basta confirmar ou trocar.
-**Status: D1–D8 aprovadas em 2026-10-27 (opção 1) e implementadas na branch `feat/habilidade-e-mobile`.**
+**Status: D1–D9 aprovadas em 2026-10-27 e implementadas na branch `feat/habilidade-e-mobile`.**
 
 | ID | Ambiguidade na spec | Proposta |
 | --- | --- | --- |
-| **D1** | "quando atinge exatamente 5 … a peça seguinte (a 6ª recolha) ativa" | Barra enche na **5ª** fruta; a **6ª** ativa e zera a barra |
-| **D2** | "aumento de 200%" **mas** "intervalo desce para metade" (+100% ≠ ×3) | **Intervalo ×0.5** por 2 s (`ABILITY_SPEED_FACTOR = 0.5`) |
+| **D1** | "quando atinge exatamente 5 … a peça seguinte (a 6ª recolha) ativa" | ~~Barra enche na 5ª fruta; a 6ª ativa~~ → **revisado por D9**: 5 laranjas ativam na hora |
+| **D2** | "aumento de 200%" **mas** "intervalo desce para metade" (+100% ≠ ×3) | **Intervalo ×0.5** por 4 s (`ABILITY_SPEED_FACTOR = 0.5`) |
 | **D3** | Turbo do `Espaço` + habilidade simultâneos | **Não empilham**: durante a habilidade, o `Espaço` não acelera mais |
 | **D4** | Bônus do corte: 200% sobre 10 = 20 por segmento | **20 pts/segmento**; não recolhe fruta, não acelera |
 | **D5** | Barra no "canto superior esquerdo" — HUD ou dentro do tabuleiro? | **HUD**, acima do tabuleiro (não cobre a jogabilidade) |
 | **D6** | Habilidade expira exatamente no passo da colisão | **Habilidade vale até o fim do quadro**; expira só no início do quadro seguinte |
 | **D7** | PWA (E3) e Capacitor (E4) são opções concorrentes? | **Ambos**, em ondas separadas: PWA primeiro (sem loja), nativo depois |
 | **D8** | ID do app / nome nas lojas | `com.exemplo.snakerush` provisório — definir antes de E4-02 |
+| **D9** | Recurso especial, valor e efeito durante a habilidade | **4 vermelhos : 1 laranja** (bloco 2×2). Vermelho 10 pts/+1 gomo; laranja 40 pts/+4 gomos. **Só o laranja** carrega a barra; 5 ativam a habilidade, que dura **4 s** e dá **crescimento ×3** (vermelho +3, laranja +12) |
 
 ## Dependências críticas
 

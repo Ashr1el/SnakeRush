@@ -28,12 +28,13 @@ Snake Rush é um jogo feito em **React + TypeScript + Next.js (App Router)**, co
 - Tabuleiro 20×20 células (`400×400` px lógicos) desenhado em `<canvas>` com nitidez em telas de alta densidade (DPR-aware).
 - Movimento interpolado entre células, com o corpo em gradiente de cor (verde → roxo) e olhos que seguem a direção.
 - Comida pulsante com brilho, grade sutil e fundo em gradiente.
-- Velocidade progressiva: cada fruta acelera o jogo até um limite.
+- Velocidade progressiva: cada recurso acelera o jogo até um limite.
 - **Turbo**: segure `Espaço` para acelerar temporariamente (fator `0.5`), com indicador visual na tela.
 - Máquina de estados completa: título → jogando → pausado → fim de jogo, com overlays e opções de resumir, resetar ou sair.
 - Efeitos sonoros sintetizados com Web Audio API (comer, morrer, iniciar, pausar, clicar) e botão de mudo persistido.
 - Recorde salvo no `localStorage`.
-- **Habilidade especial**: 5 frutas enchem a barra, a 6ª libera 2 s de turbo com auto-corte (20 pts por gomo), com vibração e som próprios.
+- **Recursos:** a cada 5 recursos, 4 são vermelhos (1 célula, 10 pts, +1 gomo) e 1 é laranja (bloco 2×2, 40 pts, +4 gomos).
+- **Habilidade especial:** 5 blocos laranja ativam 4 s de turbo com auto-corte (20 pts por gomo) e crescimento 3× ao comer.
 - Layout responsivo (desktop e mobile) com d-pad na tela, swipe no tabuleiro e botão de turbo.
 - **PWA instalável** com funcionamento offline (manifest, ícones e service worker próprios, sem dependências).
 - Metadados de página (`title`, `description`, `lang="pt-BR"`, `themeColor`) via Metadata API do Next.
@@ -94,11 +95,11 @@ Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticam
 
 ## Regras e pontuação
 
-- Cada fruta vale **10 pontos** e faz a cobra crescer um segmento.
-- A cada fruta o intervalo entre passos diminui **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
-- Comer não reposiciona a cobra: a fruta sempre nasce em uma célula livre.
-- **Barra de carga:** a 5ª fruta enche a barra; a **6ª** ativa a habilidade por **2 s**.
-- **Habilidade:** intervalo pela metade (não acumula com o turbo do `Espaço`) e encostar no próprio corpo **corta** em vez de matar — cada gomo cortado vale **20 pontos**.
+- **Vermelho** (4 de cada 5 recursos): **10 pontos**, cresce 1 gomo e reduz o intervalo entre passos em **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
+- **Laranja** (1 de cada 5): bloco de **4 células (2×2)**, **40 pontos**, cresce 4 gomos. Encostar em qualquer célula coleta o bloco inteiro.
+- O recurso sempre nasce em área livre; sem espaço para o bloco, o laranja cai para 1 célula.
+- **Barra da habilidade:** só o laranja conta — **5 blocos** ativam a habilidade por **4 s**.
+- **Habilidade:** intervalo pela metade (não acumula com o turbo do `Espaço`), **crescimento ×3** ao comer (vermelho +3, laranja +12) e encostar no próprio corpo **corta** em vez de matar — cada gomo cortado vale **20 pontos**.
 - Fora da habilidade, bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
 - O recorde é atualizado durante a partida e exibido no HUD.
 

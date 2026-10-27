@@ -10,10 +10,13 @@ import {
   ROWS,
   W,
   abilityPips as computeAbilityPips,
+  advanceAbility,
   createGame,
   step,
   stepInterval,
   type Dir,
+  type Food,
+  type FoodKind,
   type Game,
 } from '@/game/engine';
 import { sfx } from '@/lib/sound';
@@ -87,6 +90,61 @@ function drawEyes(ctx: CanvasRenderingContext2D, x: number, y: number, dir: Dir)
   }
 }
 
+function drawFood(ctx: CanvasRenderingContext2D, food: Food, now: number) {
+  const pulse = 1 + Math.sin(now / 180) * 0.1;
+
+  if (food.kind === 'normal') {
+    // recurso vermelho: 1 célula, fruta pulsante com brilho
+    const c = food.cells[0];
+    const fx = c.x * CELL + CELL / 2;
+    const fy = c.y * CELL + CELL / 2;
+    const fr = (CELL / 2 - 2) * pulse;
+    ctx.save();
+    ctx.shadowColor = '#ff4d6d';
+    ctx.shadowBlur = 18;
+    const fg = ctx.createRadialGradient(fx - 3, fy - 3, 1, fx, fy, fr);
+    fg.addColorStop(0, '#ffd6e0');
+    fg.addColorStop(0.4, '#ff6b8a');
+    fg.addColorStop(1, '#e94560');
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  // recurso laranja: bloco de 2×2 células
+  ctx.save();
+  ctx.shadowColor = '#fb923c';
+  ctx.shadowBlur = 20;
+  for (const c of food.cells) {
+    const x = c.x * CELL;
+    const y = c.y * CELL;
+    const gx = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
+    gx.addColorStop(0, '#fed7aa');
+    gx.addColorStop(0.45, '#fb923c');
+    gx.addColorStop(1, '#ea580c');
+    ctx.fillStyle = gx;
+    roundedRect(ctx, x + 1.5, y + 1.5, CELL - 3, CELL - 3, 5);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // núcleo pulsante no centro do bloco
+  const xs = food.cells.map((c) => c.x);
+  const ys = food.cells.map((c) => c.y);
+  const cx = ((Math.min(...xs) + Math.max(...xs) + 1) / 2) * CELL;
+  const cy = ((Math.min(...ys) + Math.max(...ys) + 1) / 2) * CELL;
+  ctx.save();
+  ctx.globalAlpha = 0.3 + Math.sin(now / 220) * 0.1;
+  ctx.fillStyle = '#ffedd5';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 9 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number) {
   // fundo com gradiente
   const bg = ctx.createLinearGradient(0, 0, W, H);
@@ -104,23 +162,8 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number) {
     }
   }
 
-  // comida pulsante com brilho
-  const pulse = 1 + Math.sin(now / 180) * 0.1;
-  const fx = g.food.x * CELL + CELL / 2;
-  const fy = g.food.y * CELL + CELL / 2;
-  const fr = (CELL / 2 - 2) * pulse;
-  ctx.save();
-  ctx.shadowColor = '#ff4d6d';
-  ctx.shadowBlur = 18;
-  const fg = ctx.createRadialGradient(fx - 3, fy - 3, 1, fx, fy, fr);
-  fg.addColorStop(0, '#ffd6e0');
-  fg.addColorStop(0.4, '#ff6b8a');
-  fg.addColorStop(1, '#e94560');
-  ctx.fillStyle = fg;
-  ctx.beginPath();
-  ctx.arc(fx, fy, fr, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // comida: vermelha (1 célula) ou laranja (bloco 2×2)
+  drawFood(ctx, g.food, now);
 
   // cobra com interpolação entre células (movimento suave)
   const n = g.snake.length;
@@ -204,8 +247,9 @@ export default function SnakeGame() {
   }, []);
 
   const onEat = useCallback(
-    (newScore: number) => {
+    (newScore: number, kind: FoodKind) => {
       sfx.eat();
+      if (kind === 'special') void haptic('light');
       setScore(newScore);
       commitBest(newScore);
     },
@@ -230,9 +274,9 @@ export default function SnakeGame() {
 
   // espelha no React só o que a UI mostra (barra de carga e modo especial)
   const syncMeta = useCallback((g: Game) => {
-    if (g.foodCount !== chargeRef.current) {
-      chargeRef.current = g.foodCount;
-      setCharge(g.foodCount);
+    if (g.charge !== chargeRef.current) {
+      chargeRef.current = g.charge;
+      setCharge(g.charge);
     }
     if (g.isAbilityActive !== abilityRef.current) {
       abilityRef.current = g.isAbilityActive;
@@ -361,14 +405,9 @@ export default function SnakeGame() {
       let t = 1;
 
       if (statusRef.current === 'running') {
-        // D6: a habilidade só expira no começo do quadro seguinte
-        if (g.isAbilityActive) {
-          g.abilityTimer -= dt;
-          if (g.abilityTimer <= 0) {
-            g.abilityTimer = 0;
-            g.isAbilityActive = false;
-          }
-        }
+        // D6: a habilidade só expira no começo do quadro seguinte.
+        // Se a barra encheu durante o efeito, a próxima habilidade emenda.
+        advanceAbility(g, dt, onAbility);
 
         g.acc += dt;
         let interval = stepInterval(g, boostRef.current);
@@ -470,12 +509,12 @@ export default function SnakeGame() {
         <div
           className={`card charge${ability ? ' active' : ''}`}
           role="progressbar"
-          aria-label="Carga da habilidade"
+          aria-label="Laranjas coletadas"
           aria-valuemin={0}
           aria-valuemax={ABILITY_THRESHOLD}
           aria-valuenow={pips}
         >
-          <span className="label">{ability ? 'Habilidade' : 'Carga'}</span>
+          <span className="label">{ability ? 'Habilidade' : 'Laranjas'}</span>
           <div className="pips" aria-hidden="true">
             {Array.from({ length: ABILITY_THRESHOLD }, (_, i) => (
               <i key={i} className={i < pips ? 'on' : undefined} />
@@ -528,7 +567,10 @@ export default function SnakeGame() {
                 <>
                   <h2>{status === 'idle' ? 'Snake Rush' : 'Fim de Jogo'}</h2>
                   {status === 'idle' ? (
-                    <p>Setas ou WASD para mover. Segure a barra de espaço para acelerar.</p>
+                    <p>
+                      Setas ou WASD para mover. Segure a barra de espaço para acelerar. A cada 5
+                      recursos surge um bloco laranja: coma 5 para ativar a habilidade.
+                    </p>
                   ) : (
                     <p>
                       Você marcou {score} pontos{newRecord ? ' — novo recorde!' : '!'}
@@ -609,9 +651,10 @@ export default function SnakeGame() {
       <p className="info">
         Controles: setas do teclado, <kbd>WASD</kbd>, os botões abaixo ou um arrasto no tabuleiro.
         Segure <kbd>Espaço</kbd> (ou o botão de turbo) para acelerar e <kbd>Esc</kbd> para pausar.
-        Coma 5 frutas para encher a barra de carga: a recolha seguinte libera 2 s de turbo e
-        permite cortar o próprio corpo — cada gomo cortado vale 20 pontos. Fora da habilidade,
-        encostar na parede ou no corpo encerra a partida.
+        A cada 5 recursos nasce um bloco laranja de 4 células (40 pts e +4 gomos) — a cada 5
+        blocos a habilidade ativa por 4 s: turbo, corte do próprio corpo (20 pts por gomo) e
+        crescimento 3× ao comer. Fora da habilidade, encostar na parede ou no corpo encerra a
+        partida.
       </p>
     </div>
   );
