@@ -1,0 +1,160 @@
+```markdown
+# Especificação Técnica: Versão Mobile e Nova Mecânica de Jogo (SnakeRush)
+
+Este documento detalha a adaptação do **SnakeRush** para dispositivos móveis (Android e iOS)[cite: 1] e especifica a nova regra de exceção da barra de velocidade e da habilidade de auto-corte.
+
+---
+
+## 1. Adaptação para Dispositivos Móveis (Android e iOS)
+
+Tendo em conta que o **SnakeRush** é uma aplicação web construída em Next.js 16 com renderização 100% *client-side* no Canvas 2D[cite: 1], existem duas abordagens principais e elegantes para disponibilizá-lo em telemóveis:
+
+### Opção A: Capacitor (Ionic) — *Para Lojas de Aplicações Nativas (Google Play e App Store)*
+O Capacitor encapsula a build estática da aplicação web numa *WebView* nativa de alta performance, permitindo acesso direto a APIs de hardware (como vibração tátil).
+
+1. **Configuração do Next.js:**
+   No ficheiro `next.config.ts`[cite: 1], altere a configuração para exportação estática:
+   ```ts
+   const nextConfig = {
+     output: 'export',
+     reactStrictMode: true,
+   };
+   export default nextConfig;
+
+```
+
+2. **Instalação e Inicialização:**
+```bash
+npm install @capacitor/core @capacitor/cli
+npx cap init SnakeRush com.exemplo.snakerush
+
+```
+
+
+3. **Compilação e Plataformas:**
+Execute a build da aplicação (`npm run build`) e adicione as plataformas móveis:
+```bash
+npx cap add android
+npx cap add ios
+
+```
+
+
+4. **Execução:**
+Abra os ambientes nativos com `npx cap open android` ou `npx cap open ios` para compilar e testar nos emuladores ou dispositivos físicos.
+
+### Opção B: Progressive Web App (PWA) — *Zero Fricção (Acesso Direto via Browser)*
+
+Permite que os utilizadores adicionem o jogo diretamente ao ecrã principal do telemóvel a partir do Safari ou Chrome, funcionando em ecrã inteiro e com suporte offline.
+
+* **Vantagens:** Não requer instalação por lojas, garante atualizações automáticas e aproveita na íntegra o layout responsivo atual (`.dpad` e canvas flexível).
+
+
+
+---
+
+## 2. Nova Mecânica de Jogo: Barra de 5 Unidades, Turbo e Auto-Corte
+
+Para implementar a nova regra solicitada, o modelo de dados e a máquina de estados do jogo sofrem alterações específicas.
+
+### 2.1. Alterações no Modelo de Dados (`Game`)
+
+Adicionamos campos para controlar o progresso da barra, o estado da habilidade especial e o respetivo temporizador:
+
+```ts
+interface Game {
+  snake: Cell[];
+  prev: Cell[];
+  dir: Dir;
+  queue: Dir[];
+  food: Cell;
+  score: number;
+  speed: number;
+  acc: number;
+  deathAt: number;
+  // Novos campos:
+  foodCount: number;        // Contador de peças recolhidas (0 a 5)
+  isAbilityActive: boolean; // Indica se o modo especial de corte e turbo está ativo
+  abilityTimer: number;     // Temporizador do boost em milissegundos (2000ms)
+}
+
+```
+
+### 2.2. Lógica de Contagem, Ativação e Auto-Corte
+
+1. **Contagem da Barra (Canto Superior Esquerdo):**
+* A cada peça recolhida pela cobra, incrementa-se o contador `foodCount`.
+* Quando a contagem atinge exatamente **5 unidades**, a peça seguinte (a 6ª recolha) ativa o modo especial:
+* `isAbilityActive = true`
+* `abilityTimer = 2000` (duração exata de 2 segundos)
+* A velocidade atual sofre um aumento de **200%** (o intervalo de tempo entre passos desce para metade).
+* O contador `foodCount` é reiniciado a zero para o ciclo seguinte.
+
+
+
+
+2. **Exceção de Colisão e Auto-Corte:**
+Quando a cabeça da cobra colide com o próprio corpo:
+* **Se `isAbilityActive` for falso:** Mantém-se o comportamento padrão de derrota (registo de morte e fim de jogo).
+
+
+* **Se `isAbilityActive` for verdadeiro:**
+* Identifica-se o índice do gomo onde ocorreu a colisão.
+* A cobra é cortada a partir desse ponto (`snake = snake.slice(0, cutIndex)`).
+* Cada gomo cortado gera um bónus de pontuação de **200%** sobre o valor original de recolha (10 pontos por peça). Por exemplo, se forem cortados 4 gomos, o bónus total é calculado como: $4 \times (10 \times 2.0) = 80$ pontos adicionais somados ao `score`.
+
+
+
+
+
+### 2.3. Exemplo Prático de Implementação (Lógica no Passo)
+
+```ts
+const selfIndex = game.snake.slice(1).findIndex(seg => seg.x === head.x && seg.y === head.y);
+
+if (selfIndex !== -1) {
+  if (game.isAbilityActive) {
+    // Ativação da exceção de auto-corte com bónus
+    const cutIndex = selfIndex + 1;
+    const cutSegmentsCount = game.snake.length - cutIndex;
+    
+    // Corta a cobra mantendo apenas a parte até ao ponto de colisão
+    game.snake = game.snake.slice(0, cutIndex);
+    
+    // Bónus de 200% sobre o valor original (10 pts) por segmento cortado
+    const baseValue = 10;
+    const bonusMultiplier = 2.0;
+    const totalBonus = cutSegmentsCount * (baseValue * bonusMultiplier);
+    game.score += totalBonus;
+    
+    sfx.eat(); // Efeito sonoro de sucesso/corte
+  } else {
+    // Regra padrão de colisão (morte)
+    game.deathAt = performance.now();
+    return false;
+  }
+}
+
+```
+
+### 2.4. Gestão do Temporizador no Loop Principal
+
+A cada ciclo de renderização (`requestAnimationFrame`), o temporizador da habilidade especial decresce se o modo estiver ativo:
+
+```ts
+if (game.isAbilityActive) {
+  game.abilityTimer -= dt;
+  if (game.abilityTimer <= 0) {
+    game.isAbilityActive = false;
+  }
+}
+
+```
+
+---
+
+Documentação gerada com base nos parâmetros do SnakeRush v2.0.0.
+
+```
+
+```
