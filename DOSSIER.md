@@ -58,6 +58,7 @@ Build padrão do Next (Turbopack no 16). Versões exatas ficam travadas em `pack
 | `build` | `next build` | Build de produção em `.next/` (inclui typecheck) |
 | `start` | `next start` | Serve o build de produção |
 | `typecheck` | `tsc --noEmit` | Apenas verificação de tipos |
+| `icons` | `node scripts/make-icons.mjs` | Regenera os ícones do PWA (PNG sem dependências) |
 
 O `next build` falha com qualquer erro de TypeScript, então o build já valida os tipos.
 
@@ -83,14 +84,25 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 ├── .vercel/                     # link local do projeto na Vercel (NÃO versionado)
 ├── .backup/v1-2026-10-27/       # cópia byte a byte da v1 em Vite (NÃO versionado)
 ├── public/
-│   └── snake.html               # versão legada em HTML único (/snake.html)
+│   ├── snake.html               # versão legada em HTML único (/snake.html)
+│   ├── sw.js                    # service worker (shell offline + cache runtime)
+│   ├── offline.html             # fallback quando não há rede
+│   ├── icon-192.png             # ícones do PWA (gerados por scripts/make-icons.mjs)
+│   ├── icon-512.png
+│   ├── icon-maskable-512.png
+│   └── apple-touch-icon.png
+├── scripts/
+│   └── make-icons.mjs           # gerador de ícones PNG sem dependências
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx           # <html>/<body>, metadata, viewport, CSS global
+│   │   ├── layout.tsx           # <html>/<body>, metadata, viewport, CSS global, PWA
+│   │   ├── manifest.ts          # manifest do PWA (/manifest.webmanifest)
+│   │   ├── icon.png             # favicon (gerado por scripts/make-icons.mjs)
 │   │   ├── page.tsx             # rota "/" — monta <SnakeGame />
 │   │   └── globals.css          # tema, HUD, tabuleiro, overlays, d-pad, responsivo
 │   ├── components/
-│   │   └── SnakeGame.tsx        # client component: estado, loop, regras, render, HUD
+│   │   ├── SnakeGame.tsx        # client component: estado, loop, regras, render, HUD
+│   │   └── PwaRegister.tsx      # registra o service worker em produção
 │   └── lib/
 │       └── sound.ts             # efeitos sonoros (Web Audio) + mute persistido
 └── docs/
@@ -123,8 +135,11 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 | `title` | `Jogo da Cobrinha` |
 | `description` | `Jogo da cobrinha em React e Next.js: movimento suave no canvas, turbo, pausa e efeitos sonoros sintetizados.` |
 | `applicationName` | `Jogo da Cobrinha` |
+| `appleWebApp` | `capable: true`, título `Cobrinha`, status bar `black-translucent` |
+| `icons` | favicon `/icon-192.png`, Apple `/apple-touch-icon.png` |
+| `manifest` | gerado por `src/app/manifest.ts` (link automático em `/manifest.webmanifest`) |
 | `themeColor` | `#0a0f27` |
-| `viewport` | `width=device-width`, `initialScale: 1` |
+| `viewport` | `width=device-width`, `initialScale: 1`, `viewportFit: cover` |
 
 ---
 
@@ -265,9 +280,9 @@ Cleanup: `cancelAnimationFrame` no unmount.
 
 | Ação | Teclado | Tela |
 | --- | --- | --- |
-| Mover | Setas ou `W A S D` (maiúsc./minúsc.) | d-pad (↑ ← ↓ →) |
+| Mover | Setas ou `W A S D` (maiúsc./minúsc.) | d-pad (↑ ← ↓ →) ou arrasto (swipe) no tabuleiro |
 | Iniciar / jogar novamente | `Espaço` | botão **Iniciar** |
-| Turbo (acelerar) | segurar `Espaço` durante o jogo | — |
+| Turbo (acelerar) | segurar `Espaço` durante o jogo | segurar o botão **⚡ Segure para turbo** |
 | Pausar / retomar | `Esc` | menu de pausa |
 | Resumir / Reiniciar / Sair | — | botões do menu de pausa |
 | Ativar/desativar som | — | botão 🔇/🔊 |
@@ -278,6 +293,8 @@ Regras de entrada:
 - Soltar `Espaço` **ou** `blur` da janela → turbo desligado (evita seguir acelerado em outra aba).
 - `enqueue` só aceita comandos com status `running`, ignora inversão de 180°, ignora repetição da última direção e mantém no máximo **2** itens na fila.
 - D-pad chama `blur()` no botão antes de enfileirar (evita reacionar `Espaço`/`Enter`).
+- **Swipe:** `touchstart` guarda o ponto inicial e `touchend` compara o deslocamento; abaixo de 24 px é toque (ignorado), acima disso vale o eixo dominante.
+- **Turbo no toque:** `pointerdown` liga e `pointerup`/`pointercancel`/`pointerleave` desligam; `touch-action: none` impede rolagem acidental.
 
 ---
 
@@ -338,6 +355,8 @@ Fundo do `body`: três gradientes radiais (ciano, rosa, violeta) sobre `linear-g
 | `.mute-btn` | 44×44, raio 12, ícone 20 px |
 | `.dpad` | Grid 3×2 de 64 px, `gap: 10px`; 56 px abaixo de 420 px |
 | `.pad-btn` | Gradiente azul→violeta, "3D" via `box-shadow 0 6px 0`, afunda no `:active` |
+| `.turbo-btn` | Botão de turbo (190 px) em gradiente âmbar; `.on` reforça o brilho enquanto pressionado |
+| `body` | Fundo em gradientes, `padding` com `env(safe-area-inset-*)` e `overscroll-behavior: none` |
 | `.info` | Texto de ajuda, 13 px, centralizado, `--muted` |
 
 Responsividade: `@media (max-width: 420px)` reduz d-pad (56 px) e padding dos cards.
@@ -469,11 +488,11 @@ Pedido ambíguo ("testa se está tudo certo") **não** autoriza. Quando autoriza
 ## 20. Limitações conhecidas
 
 - **Sem vitória:** tabuleiro cheio posiciona a fruta em `{0,0}` em vez de encerrar com vitória.
-- **Sem swipe:** em telas de toque o controle é o d-pad.
 - **Sem wrap de bordas:** encostar na parede encerra a partida.
 - **Recorde único:** não há separação por modo ou dificuldade.
-- **Turbo só no teclado:** não há botão de turbo no d-pad (mobile não usa turbo).
 - **`snake.html` desatualizado** em relação à versão React.
+- **Sem build nativo ainda:** Capacitor (Android/iOS) está especificado no `Roadmap`/`BACKLOG` (E4), mas não implementado. Hoje a instalação é via PWA.
+- **Service worker só em produção:** em `npm run dev` não há cache nem modo offline.
 
 ## 21. Pontos de extensão
 
@@ -482,10 +501,10 @@ Ideias que cabem na arquitetura atual sem refatoração relevante:
 - **Comida especial** (bônus temporário): campo extra em `Game`, ramo em `step()` e um desenho adicional.
 - **Obstáculos/níveis:** lista de células bloqueadas consultada em colisão e em `placeFood`.
 - **Bordas com wrap:** trocar o teste de parede por aritmética modular (atenção à interpolação em `prev`).
-- **Swipe em touch:** `touchstart`/`touchend` chamando `enqueue`, reaproveitando o d-pad em telas pequenas.
 - **Pausa automática ao perder foco:** o handler de `blur` já existe; hoje ele só desliga o turbo.
 - **Volume geral:** parâmetro em `tone()` multiplicando o `volume` de cada efeito.
-- **Botão de turbo no mobile** e **modos de dificuldade** (com recordes separados).
+- **Modos de dificuldade** com recordes separados.
+- **Empacotamento nativo** com Capacitor + haptics (E4 do backlog).
 
 ---
 
@@ -497,6 +516,7 @@ Ideias que cabem na arquitetura atual sem refatoração relevante:
 - [ ] Controles de teclado e d-pad continuam consistentes
 - [ ] Som/mudo e recorde persistindo
 - [ ] Layout verificado em desktop e ≤420 px
+- [ ] PWA instalável e offline (`npm run build && npm start`, depois modo avião)
 - [ ] `AGENTS.md` respeitado (sem deploy sem ordem explícita)
 - [ ] Se a versão atual deve ser preservada: novo snapshot `v<N>` nas três camadas
 
@@ -513,3 +533,48 @@ Ideias que cabem na arquitetura atual sem refatoração relevante:
 | **DPR** | `devicePixelRatio`, usado para nitidez do canvas |
 | **Overlay** | Camada HTML sobre o canvas (título, pausa, fim de jogo) |
 | **Snapshot** | Cópia imutável de uma versão (disco, Git e ai-memory) |
+
+---
+
+## 24. PWA, mobile e instalação
+
+O app é instalável como PWA (sem loja) e roda em tela cheia no Android e no iOS.
+
+### Arquivos
+
+| Arquivo | Função |
+| --- | --- |
+| `src/app/manifest.ts` | Gera `/manifest.webmanifest` (`standalone`, `portrait`, `start_url: "/"`, cores do tema) |
+| `public/sw.js` | Service worker: shell + cache em runtime |
+| `public/offline.html` | Fallback quando não há rede |
+| `public/icon-*.png`, `public/apple-touch-icon.png` | Ícones (192, 512, maskable 512 e Apple 180) |
+| `src/app/icon.png` | Favicon |
+| `scripts/make-icons.mjs` | Gera todos os PNGs (encoder próprio, zero dependências) |
+| `src/components/PwaRegister.tsx` | Registra o SW **apenas em produção** |
+
+### Estratégias de cache
+
+| Requisição | Estratégia |
+| --- | --- |
+| Navegação (`mode: navigate`) | **network-first** → shell em cache → `offline.html` |
+| `/_next/static/*` | **cache-first** (arquivos com hash, imutáveis) |
+| Demais do mesmo origin | **stale-while-revalidate** |
+
+O `activate` apaga caches de versões antigas (`VERSION` no topo de `sw.js`) e chama `clients.claim()`.
+
+### Comportamento mobile
+
+- `viewport-fit=cover` + `env(safe-area-inset-*)` mantêm o conteúdo fora de notch e barra de gestos.
+- `overscroll-behavior: none` evita "puxar para atualizar" durante o jogo.
+- Swipe no tabuleiro e botão de turbo por toque (press-and-hold) completam o d-pad.
+- iOS: áudio só inicia após interação (o primeiro toque no botão já libera o `AudioContext`).
+
+### Como testar
+
+```bash
+npm run build && npm start      # o SW só é registrado em produção
+# abra http://localhost:3000, recarregue e confira DevTools > Application > Service Workers
+# depois ative "Offline" no DevTools (ou modo avião) e recarregue: o jogo deve abrir
+```
+
+Lighthouse deve apontar "Installable". O ícone maskable é usado pelo Android; o `apple-touch-icon` cobre o iOS.

@@ -6,10 +6,17 @@
 
 ## Progresso
 
-**2026-10-27 — onda 1 e onda 2 implementadas na branch `feat/habilidade-e-mobile`** (commit pendente de revisão):
-E0-01 … E0-04, E1-01 … E1-06, E2-01, E2-02 e E2-04 concluídas. `tsc --noEmit` e `next build` verdes.
-Ponto de retorno salvo antes da mudança: tag `checkpoint-2026-10-27-pre-habilidade`, `.backup/v2.1-pre-habilidade-2026-10-27/` e página `snapshots/2026-10-27-checkpoint-pre-habilidade` no ai-memory.
-**Aguardando:** teste manual do usuário (E1-07) para decidir entre manter a mecânica ou reverter ao checkpoint.
+**2026-10-27 — ondas 1, 2 e 3 na branch `feat/habilidade-e-mobile`:**
+
+- **Onda 1:** E0-01 … E0-04 concluídas. Baseline verde e decisões D1–D8 aprovadas.
+- **Onda 2:** E1-01 … E1-06, E2-01, E2-02, E2-04 e E2-03 (barra esvaziando em 5 degraus durante os 2 s) concluídas.
+- **Onda 3:** E3-01 … E3-05 concluídas — manifest, ícones (`npm run icons`), service worker, tela cheia com `safe-area`, botão de turbo no toque e swipe no tabuleiro.
+
+`tsc --noEmit` e `next build` verdes; `/manifest.webmanifest`, `/sw.js`, `/offline.html` e os ícones respondem 200 em `next start`.
+
+Ponto de retorno: tag `checkpoint-2026-10-27-pre-habilidade`, `.backup/v2.1-pre-habilidade-2026-10-27/` e página `snapshots/2026-10-27-checkpoint-pre-habilidade` no ai-memory.
+
+**Aguardando:** teste manual do usuário (E1-07) e decisão sobre manter/reverter. Próxima onda possível: E4 (Capacitor), que exige Android SDK, macOS para iOS e definição do ID do app (D8).
 
 ## Legenda
 
@@ -124,7 +131,7 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 - **Aceite:** ao ativar, a borda acende por 2 s; ao expirar, volta ao gradiente normal com transição.
 
 ### E2-03 · Contagem regressiva discreta · **P** 🔒 E2-02
-- [ ] Opcional: esmaecer a borda conforme `abilityTimer` cai (sem texto na tela)
+- [x] Opcional: esmaecer a borda conforme `abilityTimer` cai (sem texto na tela)
 - **Aceite:** dá para perceber o fim da habilidade sem ler números.
 
 ### E2-04 · Áudio da habilidade e do corte · **P** ✅
@@ -142,29 +149,29 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ## E3 — Mobile web (PWA)
 
 ### E3-01 · Manifest e ícones · **M**
-- [ ] `src/app/manifest.ts` (ou `public/manifest.webmanifest`) com `name`, `short_name`, `start_url: "/"`, `display: "standalone"`, `orientation: "portrait"`, `background_color`/`theme_color: #0a0f27`
-- [ ] Ícones 192/512 + `maskable` + `apple-touch-icon` 180
+- [x] `src/app/manifest.ts` (ou `public/manifest.webmanifest`) com `name`, `short_name`, `start_url: "/"`, `display: "standalone"`, `orientation: "portrait"`, `background_color`/`theme_color: #0a0f27`
+- [x] Ícones 192/512 + `maskable` + `apple-touch-icon` 180
 - **Aceite:** Lighthouse → "Installable"; ícone correto no Android e iOS.
 
 ### E3-02 · Service worker / offline · **G** 🔒 E3-01
-- [ ] Escolher abordagem (Serwist ou SW manual) e registrar a decisão
-- [ ] Precache do shell (`/`, CSS, JS) e estratégia *stale-while-revalidate* para assets
-- [ ] Página offline de fallback
+- [x] Escolher abordagem (Serwist ou SW manual) e registrar a decisão
+- [x] Precache do shell (`/`, CSS, JS) e estratégia *stale-while-revalidate* para assets
+- [x] Página offline de fallback
 - **Aceite:** após 1ª visita, o jogo abre em modo avião; nova versão publicada aparece no 2º carregamento.
 
 ### E3-03 · Ajustes de tela cheia no mobile · **M**
-- [ ] `viewport-fit=cover` + `env(safe-area-inset-*)` no `.app`
-- [ ] Evitar *bounce*/zoom: `overscroll-behavior`, `touch-action` já aplicado no canvas
-- [ ] Testar 360×640, 390×844, 414×896
+- [x] `viewport-fit=cover` + `env(safe-area-inset-*)` no `.app`
+- [x] Evitar *bounce*/zoom: `overscroll-behavior`, `touch-action` já aplicado no canvas
+- [x] Testar 360×640, 390×844, 414×896
 - **Aceite:** nada cortado por notch/barra de gestos; d-pad alcançável com o polegar.
 
 ### E3-04 · Turbo no d-pad · **M** 🔒 E1-03
-- [ ] Botão de turbo (press-and-hold) no mobile, mesmo `boostRef` do teclado
-- [ ] `pointerdown`/`pointerup`/`pointercancel` + `pointerleave`
+- [x] Botão de turbo (press-and-hold) no mobile, mesmo `boostRef` do teclado
+- [x] `pointerdown`/`pointerup`/`pointercancel` + `pointerleave`
 - **Aceite:** comportamento idêntico ao `Espaço`, inclusive desligar ao sair do botão/aba.
 
 ### E3-05 · Swipe (opcional) · **M**
-- [ ] `touchstart`/`touchend` com limiar (~24 px) chamando `enqueue`
+- [x] `touchstart`/`touchend` com limiar (~24 px) chamando `enqueue`
 - **Aceite:** swipe não dispara clique acidental no d-pad.
 
 ---

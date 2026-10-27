@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { TouchEvent } from 'react';
 import { sfx } from '@/lib/sound';
 
 type Cell = { x: number; y: number };
@@ -289,6 +290,8 @@ export default function SnakeGame() {
   const bestRef = useRef(0);
   const chargeRef = useRef(0);
   const abilityRef = useRef(false);
+  const abilityPipsRef = useRef(0);
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
 
   const [status, setStatus] = useState<Status>('idle');
   const [score, setScore] = useState(0);
@@ -297,6 +300,7 @@ export default function SnakeGame() {
   const [muted, setMuted] = useState(false);
   const [charge, setCharge] = useState(0);
   const [ability, setAbility] = useState(false);
+  const [abilityPips, setAbilityPips] = useState(0);
 
   // Hidratação: recorde e mudo vêm do localStorage apenas depois da montagem,
   // para o HTML gerado no servidor bater com o primeiro render do cliente.
@@ -357,6 +361,14 @@ export default function SnakeGame() {
       abilityRef.current = g.isAbilityActive;
       setAbility(g.isAbilityActive);
     }
+    // contagem regressiva em 5 degraus: a barra esvazia durante a habilidade
+    const left = g.isAbilityActive
+      ? Math.max(1, Math.ceil((g.abilityTimer / ABILITY_DURATION_MS) * ABILITY_THRESHOLD))
+      : 0;
+    if (left !== abilityPipsRef.current) {
+      abilityPipsRef.current = left;
+      setAbilityPips(left);
+    }
   }, []);
 
   const start = useCallback(() => {
@@ -368,6 +380,8 @@ export default function SnakeGame() {
     setCharge(0);
     abilityRef.current = false;
     setAbility(false);
+    abilityPipsRef.current = 0;
+    setAbilityPips(0);
     setScore(0);
     statusRef.current = 'running';
     setStatus('running');
@@ -381,6 +395,34 @@ export default function SnakeGame() {
     if (d.x === last.x && d.y === last.y) return;
     if (g.queue.length < 2) g.queue.push(d);
   }, []);
+
+  // turbo pelo botão na tela (press-and-hold), mesmo caminho do Espaço
+  const setBoostHeld = useCallback((on: boolean) => {
+    if (on && statusRef.current !== 'running') return;
+    boostRef.current = on;
+    setBoost(on);
+  }, []);
+
+  // swipe no tabuleiro: um arrasto curto equivale a uma seta
+  const onTouchStart = useCallback((e: TouchEvent<HTMLCanvasElement>) => {
+    const t = e.touches[0];
+    swipeRef.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const onTouchEnd = useCallback(
+    (e: TouchEvent<HTMLCanvasElement>) => {
+      const start = swipeRef.current;
+      swipeRef.current = null;
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (Math.hypot(dx, dy) < 24) return;
+      if (Math.abs(dx) > Math.abs(dy)) enqueue(dx > 0 ? RIGHT : LEFT);
+      else enqueue(dy > 0 ? DOWN : UP);
+    },
+    [enqueue]
+  );
 
   const pause = useCallback(() => {
     if (statusRef.current !== 'running') return;
@@ -406,6 +448,8 @@ export default function SnakeGame() {
     setCharge(0);
     abilityRef.current = false;
     setAbility(false);
+    abilityPipsRef.current = 0;
+    setAbilityPips(0);
     setScore(0);
     statusRef.current = 'idle';
     setStatus('idle');
@@ -532,8 +576,8 @@ export default function SnakeGame() {
   }, [start, enqueue, pause, resume]);
 
   const newRecord = status === 'over' && score > 0 && score >= best;
-  // durante a habilidade a barra aparece cheia; fora dela mostra a carga do próximo ciclo
-  const pips = ability ? ABILITY_THRESHOLD : charge;
+  // durante a habilidade a barra esvazia (contagem regressiva); fora dela mostra a carga
+  const pips = ability ? abilityPips : charge;
 
   return (
     <div className="app">
@@ -574,7 +618,14 @@ export default function SnakeGame() {
       </div>
 
       <div className={`board-wrap${ability ? ' is-ability' : boost ? ' is-turbo' : ''}`}>
-        <canvas ref={canvasRef} width={W} height={H} aria-label="Tabuleiro do jogo" />
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          aria-label="Tabuleiro do jogo"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        />
 
         {status !== 'running' && (
           <div className="overlay">
@@ -665,12 +716,27 @@ export default function SnakeGame() {
         </button>
       </div>
 
+      <button
+        className={`turbo-btn${boost ? ' on' : ''}`}
+        aria-label="Turbo: segure para acelerar"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          setBoostHeld(true);
+        }}
+        onPointerUp={() => setBoostHeld(false)}
+        onPointerCancel={() => setBoostHeld(false)}
+        onPointerLeave={() => setBoostHeld(false)}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        ⚡ Segure para turbo
+      </button>
+
       <p className="info">
-        Controles: setas do teclado, <kbd>WASD</kbd> ou os botões abaixo. Segure{' '}
-        <kbd>Espaço</kbd> para turbinar e <kbd>Esc</kbd> para pausar (com menu para resumir,
-        resetar ou sair). Coma 5 frutas para encher a barra de carga: a recolha seguinte libera 2 s
-        de turbo e permite cortar o próprio corpo — cada gomo cortado vale 20 pontos. Fora da
-        habilidade, encostar na parede ou no corpo encerra a partida.
+        Controles: setas do teclado, <kbd>WASD</kbd>, os botões abaixo ou um arrasto no tabuleiro.
+        Segure <kbd>Espaço</kbd> (ou o botão de turbo) para acelerar e <kbd>Esc</kbd> para pausar.
+        Coma 5 frutas para encher a barra de carga: a recolha seguinte libera 2 s de turbo e
+        permite cortar o próprio corpo — cada gomo cortado vale 20 pontos. Fora da habilidade,
+        encostar na parede ou no corpo encerra a partida.
       </p>
     </div>
   );

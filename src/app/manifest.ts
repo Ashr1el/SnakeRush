@@ -1,0 +1,23 @@
+import type { MetadataRoute } from 'next';
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'Jogo da Cobrinha',
+    short_name: 'Cobrinha',
+    description:
+      'Jogo da cobrinha em Canvas: turbo, habilidade de 2 s com auto-corte, pausa e efeitos sonoros sintetizados.',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#0a0f27',
+    theme_color: '#0a0f27',
+    lang: 'pt-BR',
+    categories: ['games', 'entertainment'],
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  };
+}

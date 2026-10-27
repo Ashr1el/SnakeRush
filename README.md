@@ -33,7 +33,8 @@ Jogo da cobrinha feito em **React + TypeScript + Next.js (App Router)**, com ren
 - Máquina de estados completa: título → jogando → pausado → fim de jogo, com overlays e opções de resumir, resetar ou sair.
 - Efeitos sonoros sintetizados com Web Audio API (comer, morrer, iniciar, pausar, clicar) e botão de mudo persistido.
 - Recorde salvo no `localStorage`.
-- Layout responsivo (desktop e mobile) com d-pad na tela.
+- Layout responsivo (desktop e mobile) com d-pad na tela, swipe no tabuleiro e botão de turbo.
+- **PWA instalável** com funcionamento offline (manifest, ícones e service worker próprios, sem dependências).
 - Metadados de página (`title`, `description`, `lang="pt-BR"`, `themeColor`) via Metadata API do Next.
 
 ## Stack
@@ -60,6 +61,7 @@ npm run dev        # servidor de desenvolvimento (http://localhost:3000)
 npm run build      # build de produção em .next/ (inclui o typecheck)
 npm start          # serve o build de produção em http://localhost:3000
 npm run typecheck  # apenas o typecheck (tsc --noEmit)
+npm run icons      # regenera os ícones do PWA (scripts/make-icons.mjs)
 ```
 
 O `next build` falha se houver erro de TypeScript, então o build já valida os tipos.
@@ -77,9 +79,9 @@ O `next build` falha se houver erro de TypeScript, então o build já valida os 
 
 | Ação | Teclado | Tela |
 | --- | --- | --- |
-| Mover | Setas ou `W` `A` `S` `D` | d-pad (↑ ← ↓ →) |
+| Mover | Setas ou `W` `A` `S` `D` | d-pad (↑ ← ↓ →) ou swipe no tabuleiro |
 | Iniciar / jogar novamente | `Espaço` ou botão | botão **Iniciar** |
-| Turbo (acelerar) | segurar `Espaço` durante o jogo | — |
+| Turbo (acelerar) | segurar `Espaço` durante o jogo | segurar **⚡ Segure para turbo** |
 | Pausar / retomar | `Esc` | menu de pausa |
 | Resumir / Reiniciar / Sair | — | botões do menu de pausa |
 | Ativar/desativar som | botão 🔇/🔊 | — |
@@ -104,14 +106,22 @@ Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/a
 ├── package.json            # scripts e dependências
 ├── tsconfig.json           # TypeScript estrito + alias @/* → src/*
 ├── public/
-│   └── snake.html          # versão legada (servida em /snake.html, fora do app)
+│   ├── snake.html          # versão legada (servida em /snake.html, fora do app)
+│   ├── sw.js               # service worker (shell offline + cache em runtime)
+│   ├── offline.html        # fallback sem rede
+│   └── icon-*.png          # ícones do PWA (+ apple-touch-icon.png)
+├── scripts/
+│   └── make-icons.mjs      # gera os ícones PNG sem dependências
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx      # <html>/<body>, metadata e import do CSS global
+│   │   ├── layout.tsx      # <html>/<body>, metadata, viewport e CSS global
+│   │   ├── manifest.ts     # manifest do PWA
+│   │   ├── icon.png        # favicon
 │   │   ├── page.tsx        # rota "/" — apenas monta o componente do jogo
 │   │   └── globals.css     # tema, HUD, tabuleiro, overlays, d-pad e responsividade
 │   ├── components/
-│   │   └── SnakeGame.tsx   # "use client": loop, regras, render, HUD e overlays
+│   │   ├── SnakeGame.tsx   # "use client": loop, regras, render, HUD e overlays
+│   │   └── PwaRegister.tsx # registra o service worker em produção
 │   └── lib/
 │       └── sound.ts        # efeitos sonoros via Web Audio API (com mute persistido)
 ├── docs/                   # documentação técnica
