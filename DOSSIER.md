@@ -412,6 +412,8 @@ API: `sfx.eat()`, `sfx.die()`, `sfx.start()`, `sfx.pause()`, `sfx.click()`, `sfx
 | Deploy manual | `vercel deploy --prod` (CLI autenticada; primeiro uso exige `vercel link`) |
 | Arquivos locais | `.vercel/` e `.env.local` são gerados pelo CLI e ficam fora do Git |
 
+**Exceção ativa:** `vercel.json` contém `git.deploymentEnabled` com `"feat/habilidade-e-mobile": false`, ou seja, push nessa branch **não** gera deployment (nem preview). Remover a entrada quando a branch for mergeada ou descartada.
+
 ### Variáveis de ambiente
 
 - `.env.local` contém apenas `VERCEL_OIDC_TOKEN`, gerado pelo Vercel CLI. **Nunca** commitar: `.gitignore` cobre `.env*` (exceto um futuro `.env.example`).
