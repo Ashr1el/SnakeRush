@@ -92,7 +92,7 @@ Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticam
 - A cada fruta o intervalo entre passos diminui **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
 - Comer não reposiciona a cobra: a fruta sempre nasce em uma célula livre.
 - Bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
-- O recorde é atualizado durante a partida e exibido no HUD junto da barra de velocidade.
+- O recorde é atualizado durante a partida e exibido no HUD.
 
 Valores ajustáveis ficam no topo de `src/components/SnakeGame.tsx` (ver [docs/arquitetura.md](docs/arquitetura.md#constantes-de-ajuste)).
 

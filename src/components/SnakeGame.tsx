@@ -96,7 +96,7 @@ function createGame(): Game {
 
 function step(
   g: Game,
-  onEat: (score: number, speed: number) => void,
+  onEat: (score: number) => void,
   onCut: (score: number, segments: number) => void,
   onAbility: () => void
 ): boolean {
@@ -158,7 +158,7 @@ function step(
     }
 
     placeFood(g);
-    onEat(g.score, g.speed);
+    onEat(g.score);
   }
   return true;
 }
@@ -294,7 +294,6 @@ export default function SnakeGame() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [boost, setBoost] = useState(false);
-  const [speed, setSpeed] = useState(BASE_SPEED);
   const [muted, setMuted] = useState(false);
   const [charge, setCharge] = useState(0);
   const [ability, setAbility] = useState(false);
@@ -326,10 +325,9 @@ export default function SnakeGame() {
   }, []);
 
   const onEat = useCallback(
-    (newScore: number, newSpeed: number) => {
+    (newScore: number) => {
       sfx.eat();
       setScore(newScore);
-      setSpeed(newSpeed);
       commitBest(newScore);
     },
     [commitBest]
@@ -371,7 +369,6 @@ export default function SnakeGame() {
     abilityRef.current = false;
     setAbility(false);
     setScore(0);
-    setSpeed(BASE_SPEED);
     statusRef.current = 'running';
     setStatus('running');
   }, []);
@@ -410,7 +407,6 @@ export default function SnakeGame() {
     abilityRef.current = false;
     setAbility(false);
     setScore(0);
-    setSpeed(BASE_SPEED);
     statusRef.current = 'idle';
     setStatus('idle');
     sfx.click();
@@ -535,7 +531,6 @@ export default function SnakeGame() {
     };
   }, [start, enqueue, pause, resume]);
 
-  const pct = Math.round(((BASE_SPEED - speed) / (BASE_SPEED - MIN_SPEED)) * 100);
   const newRecord = status === 'over' && score > 0 && score >= best;
   // durante a habilidade a barra aparece cheia; fora dela mostra a carga do próximo ciclo
   const pips = ability ? ABILITY_THRESHOLD : charge;
@@ -552,12 +547,6 @@ export default function SnakeGame() {
         <div className="card pink">
           <span className="label">Recorde</span>
           <span className="value">{best}</span>
-        </div>
-        <div className="card violet">
-          <span className="label">Velocidade</span>
-          <div className="meter" aria-hidden="true">
-            <i style={{ width: `${pct}%` }} />
-          </div>
         </div>
         <div
           className={`card charge${ability ? ' active' : ''}`}

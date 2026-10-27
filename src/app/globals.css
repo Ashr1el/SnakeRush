@@ -94,22 +94,6 @@ body {
   text-shadow: 0 0 18px rgba(244, 114, 182, 0.5);
 }
 
-.meter {
-  height: 8px;
-  margin-top: 6px;
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-}
-
-.meter i {
-  display: block;
-  height: 100%;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--lime), var(--amber), #fb7185);
-  transition: width 0.25s ease;
-}
-
 /* barra de carga da habilidade — 5 unidades */
 .card.charge .pips {
   display: flex;

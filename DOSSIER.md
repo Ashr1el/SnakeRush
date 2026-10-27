@@ -164,7 +164,7 @@ interface Game {
 
 ### Estado React (`useState`)
 
-`status`, `score`, `best`, `boost`, `speed`, `muted` — usados **apenas** para HUD e overlays.
+`status`, `score`, `best`, `boost`, `muted`, `charge`, `ability` — usados **apenas** para HUD e overlays.
 
 **Decisão central:** o estado da partida **não** vive no React. Ele fica no `Game` mutável dentro de `useRef`, atualizado a cada quadro. React renderiza só o que muda de forma perceptível (pontos, recorde, status, turbo), evitando dezenas de re-renders por segundo.
 
@@ -198,7 +198,7 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 - Cada fruta reduz o intervalo entre passos em **3 ms**, até o piso de **70 ms**.
 - A fruta sempre nasce em uma célula livre (`placeFood` sorteia entre as livres).
 - Bater na parede encerra a partida — **não há wrap** de bordas. Colidir com o próprio corpo também encerra, **exceto** durante a habilidade (auto-corte).
-- O recorde é atualizado durante a partida e exibido no HUD com a barra de velocidade.
+- O recorde é atualizado durante a partida e exibido no HUD.
 - Não há condição de vitória: tabuleiro cheio → fruta cai em `{0,0}`.
 
 ### Barra de carga e habilidade especial (D1–D8)
@@ -306,9 +306,9 @@ HUD, overlays e o indicador de turbo são **HTML/CSS** sobre o canvas (`position
 | Token | Valor | Uso |
 | --- | --- | --- |
 | `--cyan` | `#22d3ee` | Pontos, moldura, botões primários |
-| `--lime` | `#a3e635` | Gradientes, barra de velocidade |
+| `--lime` | `#a3e635` | Gradientes e botões primários |
 | `--pink` | `#f472b6` | Recorde, botões secundários |
-| `--violet` | `#a78bfa` | Card de velocidade, botões secundários |
+| `--violet` | `#a78bfa` | Botões secundários e d-pad |
 | `--amber` | `#fbbf24` | Destaques/recorde, borda no turbo |
 | `--panel` | `rgba(255,255,255,0.06)` | Fundo de cards e botão de som |
 | `--panel-border` | `rgba(255,255,255,0.12)` | Bordas de cards |
@@ -323,10 +323,9 @@ Fundo do `body`: três gradientes radiais (ciano, rosa, violeta) sobre `linear-g
 | --- | --- |
 | `.app` | Coluna centralizada, `gap: 18px`, `max-width: 460px` |
 | `.title` | Texto com gradiente ciano→lime→rosa recortado (`background-clip: text`) |
-| `.hud` | Flex com wrap: 3 cards + card de carga + botão de som |
+| `.hud` | Flex com wrap: 2 cards (Pontos, Recorde) + card de carga + botão de som |
 | `.card` | Painel translúcido com `backdrop-filter: blur(8px)`, raio 14, valor 22 px/800 |
 | `.card.cyan` / `.card.pink` | Valor colorido com brilho (`text-shadow`) |
-| `.meter` | Barra de 8 px, raio 99, preenchimento com gradiente lime→amber→rosa, transição de 0.25 s |
 | `.card.charge` | Card da carga: 5 "pips" de 8 px; `.active` deixa borda e rótulo âmbar |
 | `.card.charge .pips i.on` | Pip preenchido: gradiente âmbar + brilho |
 | `.board-wrap` | Moldura de 6 px, raio 20, gradiente ciano→violeta→rosa, sombra `0 20px 50px` |
