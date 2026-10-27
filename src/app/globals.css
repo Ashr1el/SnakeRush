@@ -99,11 +99,15 @@ body {
   text-shadow: 0 0 18px rgba(244, 114, 182, 0.5);
 }
 
-/* barra de carga da habilidade — 5 unidades */
+/* barra de carga da habilidade — 5 unidades, vermelhas em cima e laranjas embaixo */
 .card.charge .pips {
   display: flex;
   gap: 4px;
   margin-top: 8px;
+}
+
+.card.charge .pips + .pips {
+  margin-top: 4px;
 }
 
 .card.charge .pips i {
@@ -117,6 +121,11 @@ body {
 .card.charge .pips i.on {
   background: linear-gradient(90deg, var(--amber), #fde68a);
   box-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
+}
+
+.card.charge .pips.red i.on {
+  background: linear-gradient(90deg, #dc2626, #fca5a5);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
 }
 
 .card.charge.active {

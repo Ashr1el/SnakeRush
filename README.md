@@ -98,7 +98,7 @@ Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticam
 - **Vermelho** (4 de cada 5 recursos): **10 pontos**, cresce 1 gomo e reduz o intervalo entre passos em **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
 - **Laranja** (1 de cada 5): bloco de **4 células (2×2)**, **40 pontos**, cresce 3 gomos. Encostar em qualquer célula coleta o bloco inteiro.
 - O recurso sempre nasce em área livre; sem espaço para o bloco, o laranja cai para 1 célula.
-- **Barra da habilidade:** só o laranja conta — **5 blocos** ativam a habilidade por **4 s**.
+- **Barra da habilidade:** só o laranja conta — **5 blocos** ativam a habilidade por **4 s**. O card do HUD mostra dois marcadores de 5 pips: vermelho em cima (recursos vermelhos) e laranja embaixo (blocos laranja).
 - **Habilidade:** intervalo pela metade (não acumula com o turbo do `Espaço`), **crescimento ×3** ao comer (vermelho +3, laranja +9) e encostar no próprio corpo **corta** em vez de matar — cada gomo cortado vale **20 pontos**.
 - Fora da habilidade, bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
 - O recorde é atualizado durante a partida e exibido no HUD.

@@ -176,7 +176,8 @@ interface Game {
   speed: number;   // ms por passo (diminui ao comer)
   acc: number;     // acumulador de tempo do loop
   deathAt: number; // timestamp da morte (flash)
-  charge: number;  // laranjas coletados no ciclo (0 a 5)
+  charge: number;  // laranjas coletados no ciclo (0 a 5) — carrega a habilidade
+  redCharge: number; // vermelhos coletados no ciclo (0 a 5) — só o marcador do HUD
   isAbilityActive: boolean; // modo especial: turbo + auto-corte
   abilityTimer: number;     // ms restantes da habilidade
 }
@@ -195,7 +196,7 @@ interface Game {
 
 ### Estado React (`useState`)
 
-`status`, `score`, `best`, `boost`, `muted`, `charge`, `ability` — usados **apenas** para HUD e overlays.
+`status`, `score`, `best`, `boost`, `muted`, `charge`, `redCharge`, `ability` — usados **apenas** para HUD e overlays.
 
 **Decisão central:** o estado da partida **não** vive no React. Ele fica no `Game` mutável dentro de `useRef`, atualizado a cada quadro. React renderiza só o que muda de forma perceptível (pontos, recorde, status, turbo), evitando dezenas de re-renders por segundo.
 
@@ -241,8 +242,8 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 
 | Regra | Comportamento |
 | --- | --- |
-| Carga | **Só o laranja** conta: cada bloco soma **1** em `charge` (máximo 5). Vermelho não carrega a barra (D9) |
-| Ativação | Ao coletar o **5º laranja** a habilidade ativa na hora e `charge` volta a 0 |
+| Carga | **Só o laranja** conta: cada bloco soma **1** em `charge` (máximo 5). O vermelho soma **1** em `redCharge` (máximo 5), que é só informativo e não ativa nada (D9) |
+| Ativação | Ao coletar o **5º laranja** a habilidade ativa na hora; `charge` e `redCharge` voltam a 0 |
 | Duração | `4000` ms de jogo; a pausa **não** consome o tempo |
 | Velocidade | Intervalo entre passos `×0.5` (`ABILITY_SPEED_FACTOR`); **não** acumula com o turbo do `Espaço` |
 | Crescimento | Durante a habilidade, **crescimento ×3**: vermelho +3 gomos, laranja +9 (D9) |
@@ -367,8 +368,9 @@ Fundo do `body`: três gradientes radiais (ciano, rosa, violeta) sobre `linear-g
 | `.hud` | Flex com wrap: 2 cards (Pontos, Recorde) + card de carga + botão de som |
 | `.card` | Painel translúcido com `backdrop-filter: blur(8px)`, raio 14, valor 22 px/800 |
 | `.card.cyan` / `.card.pink` | Valor colorido com brilho (`text-shadow`) |
-| `.card.charge` | Card da carga: 5 "pips" de 8 px; `.active` deixa borda e rótulo âmbar |
-| `.card.charge .pips i.on` | Pip preenchido: gradiente âmbar + brilho |
+| `.card.charge` | Card **Habilidade**: duas fileiras de 5 "pips" de 8 px (vermelhos em cima, laranjas embaixo); `.active` deixa borda e rótulo âmbar |
+| `.card.charge .pips i.on` | Pip laranja preenchido: gradiente âmbar + brilho |
+| `.card.charge .pips.red i.on` | Pip vermelho preenchido: gradiente vermelho + brilho |
 | `.board-wrap` | Moldura de 6 px, raio 20, gradiente ciano→violeta→rosa, sombra `0 20px 50px` |
 | `.board-wrap.is-turbo` | Moldura em âmbar (`#fbbf24 → #fde68a → #f59e0b`) + halo amarelo, transição 0.18 s — **turbo do `Espaço`** |
 | `.board-wrap.is-ability` | Moldura **laranja** (`#fdba74 → #fb923c → #f97316`) com anel de 2 px e halo de 46 px — **habilidade especial** |
@@ -389,7 +391,7 @@ Responsividade: `@media (max-width: 420px)` reduz d-pad (56 px) e padding dos ca
 
 O turbo **não** usa badge/pílula. Ele é comunicado pela **borda do tabuleiro**: `.board-wrap` recebe `is-turbo` enquanto `boost` é verdadeiro, acendendo em amarelo e voltando ao gradiente normal (com transição) ao soltar a tecla, pausar, morrer, sair, resetar ou perder o foco.
 
-A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Laranjas** no HUD mostra 5 pips: preenchidos conforme `charge` (só o bloco laranja conta) e esvaziando em 5 degraus enquanto a habilidade está ativa.
+A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Habilidade** no HUD mostra duas fileiras de 5 pips: a de cima, vermelha, acompanha `redCharge`; a de baixo, laranja, acompanha `charge` e esvazia em 5 degraus enquanto a habilidade está ativa. Os dois marcadores reiniciam juntos quando a habilidade ativa.
 
 ### Acessibilidade
 
@@ -628,6 +630,7 @@ npm test
 | Sequência de geração | 4 vermelhos e 1 laranja, em ciclo |
 | Bloco laranja | 4 células em 2×2, dentro do tabuleiro e fora da cobra; fallback de 1 célula |
 | Barra e ativação | vermelho não carrega; 5º laranja ativa na hora e zera a barra |
+| Marcador vermelho | `redCharge` conta até 5, não ativa nada e zera junto com a ativação |
 | Pontos | vermelho 10, laranja 40 |
 | Crescimento | vermelho +1, laranja +3; durante a habilidade ×3 (3 e 9) |
 | Aceleração | `speed` cai por recurso e respeita `MIN_SPEED` |

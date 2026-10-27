@@ -77,7 +77,7 @@ Resolve a tabela [Decisões pendentes](#decisões-pendentes-antes-de-codar). Sem
 > Arquivo principal: `src/components/SnakeGame.tsx`. A lógica vive em `step()` + loop (`frame()`) + `Game`.
 
 ### E1-01 · Estender o modelo `Game` · **P** 🔒 E0-04
-- [x] Adicionar `food: Food` (`kind` + `cells`), `spawns`, `charge`, `isAbilityActive` e `abilityTimer`
+- [x] Adicionar `food: Food` (`kind` + `cells`), `spawns`, `charge`, `redCharge`, `isAbilityActive` e `abilityTimer`
 - [x] Inicializar em `createGame()` (`0`, `0`, `false`, `0`)
 - **Aceite:** `tsc --noEmit` passa; `reset`/`exitToTitle`/`start` recriam o estado zerado.
 
@@ -130,7 +130,7 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 
 ### E2-01 · Barra de 5 unidades no canto superior esquerdo · **M** 🔒 E1-02
 - [x] Componente no HUD (ou dentro de `.board-wrap`, canto sup. esq.) com 5 "pips"
-- [x] Preenchidos = `charge` (só laranja conta); durante a habilidade a barra esvazia em 5 degraus
+- [x] Duas fileiras de 5 pips: vermelhos em cima (`redCharge`) e laranjas embaixo (`charge`); durante a habilidade a fileira laranja esvazia em 5 degraus
 - [x] `aria-label`/`role="progressbar"` com `aria-valuenow` = pips, `aria-valuemax` = 5
 - [x] Responsivo: não empurrar o HUD em telas ≤420 px
 - **Aceite:** reflete o estado em tempo real, sem re-render por quadro (só quando a carga ou o timer mudam).

@@ -31,7 +31,6 @@ export const POINTS_NORMAL = 10; // pontos por recurso vermelho
 export const POINTS_SPECIAL = 40; // pontos por bloco laranja (4 células × 10)
 export const GROWTH_NORMAL = 1; // gomos por recurso vermelho
 export const GROWTH_SPECIAL = 3; // gomos por bloco laranja (ocupa 4 células)
-
 export interface Game {
   snake: Cell[];
   prev: Cell[];
@@ -44,6 +43,7 @@ export interface Game {
   acc: number;
   deathAt: number;
   charge: number; // laranjas coletados no ciclo (0 até ABILITY_THRESHOLD)
+  redCharge: number; // vermelhos coletados no ciclo (0 até ABILITY_THRESHOLD, só HUD)
   isAbilityActive: boolean; // modo especial de turbo + auto-corte
   abilityTimer: number; // ms restantes da habilidade
 }
@@ -125,6 +125,7 @@ export function createGame(): Game {
     acc: 0,
     deathAt: 0,
     charge: 0,
+    redCharge: 0,
     isAbilityActive: false,
     abilityTimer: 0,
   };
@@ -150,6 +151,7 @@ function growSnake(snake: Cell[], growth: number): Cell[] {
 function startAbilityIfReady(g: Game, onAbility: () => void) {
   if (g.isAbilityActive || g.charge < ABILITY_THRESHOLD) return;
   g.charge = 0;
+  g.redCharge = 0;
   g.isAbilityActive = true;
   g.abilityTimer = ABILITY_DURATION_MS;
   onAbility();
@@ -227,9 +229,11 @@ export function step(
   g.score += kind === 'special' ? POINTS_SPECIAL : POINTS_NORMAL;
   g.speed = Math.max(MIN_SPEED, g.speed - SPEED_STEP);
 
-  // D9: só o recurso laranja carrega a barra
+  // D9: só o recurso laranja carrega a barra; o vermelho tem marcador próprio
   if (kind === 'special') {
     g.charge = Math.min(ABILITY_THRESHOLD, g.charge + 1);
+  } else {
+    g.redCharge = Math.min(ABILITY_THRESHOLD, g.redCharge + 1);
   }
 
   placeFood(g);

@@ -207,6 +207,7 @@ export default function SnakeGame() {
   const boostRef = useRef(false);
   const bestRef = useRef(0);
   const chargeRef = useRef(0);
+  const redChargeRef = useRef(0);
   const abilityRef = useRef(false);
   const abilityPipsRef = useRef(0);
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
@@ -217,6 +218,7 @@ export default function SnakeGame() {
   const [boost, setBoost] = useState(false);
   const [muted, setMuted] = useState(false);
   const [charge, setCharge] = useState(0);
+  const [redCharge, setRedCharge] = useState(0);
   const [ability, setAbility] = useState(false);
   const [abilityPips, setAbilityPips] = useState(0);
 
@@ -272,11 +274,15 @@ export default function SnakeGame() {
     void haptic('light');
   }, []);
 
-  // espelha no React só o que a UI mostra (barra de carga e modo especial)
+  // espelha no React só o que a UI mostra (marcadores e modo especial)
   const syncMeta = useCallback((g: Game) => {
     if (g.charge !== chargeRef.current) {
       chargeRef.current = g.charge;
       setCharge(g.charge);
+    }
+    if (g.redCharge !== redChargeRef.current) {
+      redChargeRef.current = g.redCharge;
+      setRedCharge(g.redCharge);
     }
     if (g.isAbilityActive !== abilityRef.current) {
       abilityRef.current = g.isAbilityActive;
@@ -297,6 +303,8 @@ export default function SnakeGame() {
     setBoost(false);
     chargeRef.current = 0;
     setCharge(0);
+    redChargeRef.current = 0;
+    setRedCharge(0);
     abilityRef.current = false;
     setAbility(false);
     abilityPipsRef.current = 0;
@@ -365,6 +373,8 @@ export default function SnakeGame() {
     setBoost(false);
     chargeRef.current = 0;
     setCharge(0);
+    redChargeRef.current = 0;
+    setRedCharge(0);
     abilityRef.current = false;
     setAbility(false);
     abilityPipsRef.current = 0;
@@ -508,14 +518,30 @@ export default function SnakeGame() {
         </div>
         <div
           className={`card charge${ability ? ' active' : ''}`}
-          role="progressbar"
-          aria-label="Laranjas coletadas"
-          aria-valuemin={0}
-          aria-valuemax={ABILITY_THRESHOLD}
-          aria-valuenow={pips}
+          role="group"
+          aria-label="Habilidade"
         >
-          <span className="label">{ability ? 'Habilidade' : 'Laranjas'}</span>
-          <div className="pips" aria-hidden="true">
+          <span className="label">Habilidade</span>
+          <div
+            className="pips red"
+            role="progressbar"
+            aria-label="Vermelhos coletados"
+            aria-valuemin={0}
+            aria-valuemax={ABILITY_THRESHOLD}
+            aria-valuenow={redCharge}
+          >
+            {Array.from({ length: ABILITY_THRESHOLD }, (_, i) => (
+              <i key={i} className={i < redCharge ? 'on' : undefined} />
+            ))}
+          </div>
+          <div
+            className="pips"
+            role="progressbar"
+            aria-label="Laranjas coletadas"
+            aria-valuemin={0}
+            aria-valuemax={ABILITY_THRESHOLD}
+            aria-valuenow={pips}
+          >
             {Array.from({ length: ABILITY_THRESHOLD }, (_, i) => (
               <i key={i} className={i < pips ? 'on' : undefined} />
             ))}

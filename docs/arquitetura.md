@@ -84,6 +84,7 @@ interface Game {
   acc: number;            // acumulador de tempo do loop
   deathAt: number;        // timestamp da morte (para o flash)
   charge: number;         // laranjas coletados no ciclo: 0 … ABILITY_THRESHOLD
+  redCharge: number;      // vermelhos coletados no ciclo: 0 … ABILITY_THRESHOLD (só HUD)
   isAbilityActive: boolean;
   abilityTimer: number;   // ms restantes da habilidade
 }
@@ -164,9 +165,9 @@ Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`,
 
 | Situação | Efeito |
 | --- | --- |
-| Vermelho coletado | +10 pts, +1 gomo; **não** mexe na barra |
+| Vermelho coletado | +10 pts, +1 gomo, `redCharge += 1` (marcador vermelho, não ativa nada) |
 | Laranja coletado | +40 pts, +3 gomos, `charge += 1` |
-| 5º laranja | ativa a habilidade **na hora** (`charge = 0`, `abilityTimer = 4000`) |
+| 5º laranja | ativa a habilidade **na hora** (`charge = 0`, `redCharge = 0`, `abilityTimer = 4000`) |
 | Durante a habilidade | intervalo ×0.5; **crescimento ×3** (vermelho +3, laranja +9); encostar no corpo corta |
 | Barra cheia durante o efeito | a próxima habilidade **emenda** quando a atual terminar |
 | Fim dos 4 s | volta ao normal; morrer sem habilidade é derrota |
@@ -205,6 +206,8 @@ Tudo é desenhado a cada quadro, nesta ordem:
 5. **Flash de morte** — véu vermelho com alfa decaindo em 600 ms a partir de `deathAt`.
 
 O HUD, o overlay e a borda de estado do tabuleiro são HTML/CSS sobre o canvas (`position: absolute`). A borda muda de cor: **laranja** durante a habilidade, **amarela** no turbo do Espaço, neutra no resto.
+
+O card **Habilidade** empilha dois marcadores de 5 pips, do mesmo tamanho: **vermelho em cima** (`redCharge`) e **laranja embaixo** (`charge`, que vira a contagem regressiva de 5 → 1 durante o efeito). Ambos zeram juntos na ativação.
 
 ---
 

@@ -165,6 +165,32 @@ test('pontuação: vermelho 10, laranja 40', () => {
   assert.equal(g.score, POINTS_NORMAL + POINTS_SPECIAL);
 });
 
+test('marcador vermelho: conta até 5 e zera quando a habilidade ativa', () => {
+  const g = createGame();
+
+  for (let i = 1; i <= 5; i++) {
+    resetSnake(g);
+    g.food = { kind: 'normal', cells: [ahead(g)] };
+    step(g, noop, noop, noop);
+    assert.equal(g.redCharge, i);
+    assert.equal(g.charge, 0, 'vermelho não mexe na barra de laranjas');
+  }
+
+  resetSnake(g);
+  g.food = { kind: 'normal', cells: [ahead(g)] };
+  step(g, noop, noop, noop);
+  assert.equal(g.redCharge, 5, 'não passa de 5');
+
+  g.charge = ABILITY_THRESHOLD - 1;
+  resetSnake(g);
+  g.food = { kind: 'special', cells: [ahead(g)] };
+  step(g, noop, noop, noop);
+
+  assert.equal(g.isAbilityActive, true);
+  assert.equal(g.charge, 0);
+  assert.equal(g.redCharge, 0, 'os dois marcadores reiniciam juntos');
+});
+
 test('crescimento fora da habilidade: vermelho +1, laranja +3', () => {
   const g = createGame();
   assert.equal(g.snake.length, 3);
