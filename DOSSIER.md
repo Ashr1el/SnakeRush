@@ -9,7 +9,7 @@
 
 | Item | Valor |
 | --- | --- |
-| Nome | Jogo da Cobrinha (SnakeRush) |
+| Nome | Snake Rush |
 | Tipo | Jogo web single-player, 100% client-side |
 | Repositório | https://github.com/Ashr1el/SnakeRush |
 | Branch de trabalho | `developer` (também a padrão) |
@@ -21,7 +21,7 @@
 
 ### Proposta
 
-Recriar o clássico jogo da cobrinha com acabamento moderno: movimento interpolado (sem "saltos" de célula), efeitos sonoros sintetizados em tempo real, tema visual neon e uma máquina de estados completa (título → jogo → pausa → fim), sem backend e sem dependências de UI.
+Recriar o clássico *snake game* com acabamento moderno: movimento interpolado (sem "saltos" de célula), efeitos sonoros sintetizados em tempo real, tema visual neon e uma máquina de estados completa (título → jogo → pausa → fim), sem backend e sem dependências de UI.
 
 ---
 
@@ -141,10 +141,10 @@ O `next build` falha com qualquer erro de TypeScript, então o build já valida 
 
 | Campo | Valor |
 | --- | --- |
-| `title` | `Jogo da Cobrinha` |
-| `description` | `Jogo da cobrinha em React e Next.js: movimento suave no canvas, turbo, pausa e efeitos sonoros sintetizados.` |
-| `applicationName` | `Jogo da Cobrinha` |
-| `appleWebApp` | `capable: true`, título `Cobrinha`, status bar `black-translucent` |
+| `title` | `Snake Rush` |
+| `description` | `Snake Rush em React e Next.js: movimento suave no canvas, turbo, pausa e efeitos sonoros sintetizados.` |
+| `applicationName` | `Snake Rush` |
+| `appleWebApp` | `capable: true`, título `Snake Rush`, status bar `black-translucent` |
 | `icons` | favicon `/icon-192.png`, Apple `/apple-touch-icon.png` |
 | `manifest` | gerado por `src/app/manifest.ts` (link automático em `/manifest.webmanifest`) |
 | `themeColor` | `#0a0f27` |

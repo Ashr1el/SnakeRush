@@ -456,7 +456,7 @@ export default function SnakeGame() {
 
   return (
     <div className="app">
-      <h1 className="title">🐍 Jogo da Cobrinha</h1>
+      <h1 className="title">🐍 Snake Rush</h1>
 
       <div className="hud">
         <div className="card cyan">
@@ -526,7 +526,7 @@ export default function SnakeGame() {
                 </>
               ) : (
                 <>
-                  <h2>{status === 'idle' ? 'Jogo da Cobrinha' : 'Fim de Jogo'}</h2>
+                  <h2>{status === 'idle' ? 'Snake Rush' : 'Fim de Jogo'}</h2>
                   {status === 'idle' ? (
                     <p>Setas ou WASD para mover. Segure a barra de espaço para acelerar.</p>
                   ) : (

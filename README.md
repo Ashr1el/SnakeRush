@@ -1,6 +1,6 @@
-# 🐍 Jogo da Cobrinha (SnakeRush)
+# 🐍 Snake Rush
 
-Jogo da cobrinha feito em **React + TypeScript + Next.js (App Router)**, com renderização em canvas, movimento suave entre células, efeitos sonoros gerados por código (sem arquivos de áudio) e suporte a teclado e controles na tela.
+Snake Rush é um jogo feito em **React + TypeScript + Next.js (App Router)**, com renderização em canvas, movimento suave entre células, efeitos sonoros gerados por código (sem arquivos de áudio) e suporte a teclado e controles na tela.
 
 > Repositório: https://github.com/Ashr1el/SnakeRush — branch de desenvolvimento: `developer`
 

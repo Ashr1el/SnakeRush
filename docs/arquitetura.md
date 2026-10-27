@@ -1,4 +1,4 @@
-# Arquitetura — Jogo da Cobrinha
+# Arquitetura — Snake Rush
 
 Documento técnico da versão React (`src/`). Descreve o modelo de dados, o núcleo puro do jogo, o loop, a máquina de estados, a renderização em canvas, o áudio, o PWA e o caminho nativo.
 

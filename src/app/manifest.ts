@@ -5,10 +5,10 @@ export const dynamic = 'force-static';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Jogo da Cobrinha',
-    short_name: 'Cobrinha',
+    name: 'Snake Rush',
+    short_name: 'Snake Rush',
     description:
-      'Jogo da cobrinha em Canvas: turbo, habilidade de 2 s com auto-corte, pausa e efeitos sonoros sintetizados.',
+      'Snake Rush em Canvas: turbo, habilidade de 2 s com auto-corte, pausa e efeitos sonoros sintetizados.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

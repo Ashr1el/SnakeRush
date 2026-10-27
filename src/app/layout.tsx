@@ -4,13 +4,13 @@ import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Jogo da Cobrinha',
+  title: 'Snake Rush',
   description:
-    'Jogo da cobrinha em React e Next.js: movimento suave no canvas, turbo, pausa e efeitos sonoros sintetizados.',
-  applicationName: 'Jogo da Cobrinha',
+    'Snake Rush em React e Next.js: movimento suave no canvas, turbo, pausa e efeitos sonoros sintetizados.',
+  applicationName: 'Snake Rush',
   appleWebApp: {
     capable: true,
-    title: 'Cobrinha',
+    title: 'Snake Rush',
     statusBarStyle: 'black-translucent',
   },
   icons: {
