@@ -330,7 +330,7 @@ Fundo do `body`: três gradientes radiais (ciano, rosa, violeta) sobre `linear-g
 | `.card.charge .pips i.on` | Pip preenchido: gradiente âmbar + brilho |
 | `.board-wrap` | Moldura de 6 px, raio 20, gradiente ciano→violeta→rosa, sombra `0 20px 50px` |
 | `.board-wrap.is-turbo` | Moldura em âmbar (`#fbbf24 → #fde68a → #f59e0b`) + halo amarelo, transição 0.18 s — **turbo do `Espaço`** |
-| `.board-wrap.is-ability` | Moldura dourada mais intensa (halo 46 px + anel de 2 px) — **habilidade especial** |
+| `.board-wrap.is-ability` | Moldura **laranja** (`#fdba74 → #fb923c → #f97316`) com anel de 2 px e halo de 46 px — **habilidade especial** |
 | `canvas` | `aspect-ratio: 1/1`, raio 14, `touch-action: none` |
 | `.overlay` | `inset: 6px`, fundo `rgba(10,15,39,0.72)`, blur 6 px, centralizado |
 | `.btn` | Gradiente ciano→lime, raio 12, hover eleva 2 px |
@@ -346,7 +346,7 @@ Responsividade: `@media (max-width: 420px)` reduz d-pad (56 px) e padding dos ca
 
 O turbo **não** usa badge/pílula. Ele é comunicado pela **borda do tabuleiro**: `.board-wrap` recebe `is-turbo` enquanto `boost` é verdadeiro, acendendo em amarelo e voltando ao gradiente normal (com transição) ao soltar a tecla, pausar, morrer, sair, resetar ou perder o foco.
 
-A habilidade especial usa a mesma linguagem com intensidade maior (`is-ability`, borda dourada com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Carga** no HUD mostra 5 pips: preenchidos conforme `foodCount` e cheios enquanto a habilidade está ativa.
+A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Carga** no HUD mostra 5 pips: preenchidos conforme `foodCount` e cheios enquanto a habilidade está ativa.
 
 ### Acessibilidade
 
