@@ -4,6 +4,13 @@
 > **Ordem de execução:** ondas 1 → 5, na sequência em que aparecem. Não pule para o mobile antes de fechar a mecânica.
 > **Atualizado:** 2026-10-27
 
+## Progresso
+
+**2026-10-27 — onda 1 e onda 2 implementadas na branch `feat/habilidade-e-mobile`** (commit pendente de revisão):
+E0-01 … E0-04, E1-01 … E1-06, E2-01, E2-02 e E2-04 concluídas. `tsc --noEmit` e `next build` verdes.
+Ponto de retorno salvo antes da mudança: tag `checkpoint-2026-10-27-pre-habilidade`, `.backup/v2.1-pre-habilidade-2026-10-27/` e página `snapshots/2026-10-27-checkpoint-pre-habilidade` no ai-memory.
+**Aguardando:** teste manual do usuário (E1-07) para decidir entre manter a mecânica ou reverter ao checkpoint.
+
 ## Legenda
 
 | Símbolo | Significado |
@@ -35,15 +42,16 @@
 
 ### E0-02 · Fechar as ambiguidades da spec · **M** 🔒
 Resolve a tabela [Decisões pendentes](#decisões-pendentes-antes-de-codar). Sem isso, E1-02/E1-03 ficam bloqueados.
-- [ ] Registrar as respostas em `DOSSIER.md` (seção de regras) e no topo deste backlog
+- [x] Registrar as respostas em `DOSSIER.md` (seção de regras) e no topo deste backlog
 - **Aceite:** nenhuma tarefa de E1 depende de interpretação.
+- **Aprovado em 2026-10-27:** usuário escolheu a opção 1 — todas as propostas D1–D8 valem como especificação.
 
-### E0-03 · Criar branch de trabalho · **P**
-- [ ] `git checkout -b feat/habilidade-e-mobile`
+### E0-03 · Criar branch de trabalho · **P** ✅
+- [x] `git checkout -b feat/habilidade-e-mobile`
 - **Aceite:** `developer` permanece intocada até a revisão final (evita deploy automático — ver `AGENTS.md`).
 
-### E0-04 · Constantes da nova mecânica · **P**
-- [ ] Em `src/components/SnakeGame.tsx`, extrair: `ABILITY_THRESHOLD = 5`, `ABILITY_DURATION_MS = 2000`, `ABILITY_SPEED_FACTOR` (ver decisão D2), `CUT_BONUS_PER_SEGMENT = 20`, `CUT_BONUS_SFX`
+### E0-04 · Constantes da nova mecânica · **P** ✅
+- [x] Em `src/components/SnakeGame.tsx`, extrair: `ABILITY_THRESHOLD = 5`, `ABILITY_DURATION_MS = 2000`, `ABILITY_SPEED_FACTOR` (ver decisão D2), `CUT_BONUS_PER_SEGMENT = 20`, `CUT_BONUS_SFX`
 - **Aceite:** nenhum número mágico novo espalhado pelo arquivo.
 
 ---
@@ -53,44 +61,44 @@ Resolve a tabela [Decisões pendentes](#decisões-pendentes-antes-de-codar). Sem
 > Arquivo principal: `src/components/SnakeGame.tsx`. A lógica vive em `step()` + loop (`frame()`) + `Game`.
 
 ### E1-01 · Estender o modelo `Game` · **P** 🔒 E0-04
-- [ ] Adicionar `foodCount: number`, `isAbilityActive: boolean`, `abilityTimer: number`
-- [ ] Inicializar em `createGame()` (`0`, `false`, `0`)
+- [x] Adicionar `foodCount: number`, `isAbilityActive: boolean`, `abilityTimer: number`
+- [x] Inicializar em `createGame()` (`0`, `false`, `0`)
 - **Aceite:** `tsc --noEmit` passa; `reset`/`exitToTitle`/`start` recriam o estado zerado.
 
 ### E1-02 · Contador da barra (0→5) · **P** 🔒 E0-02
-- [ ] Em `step()`, no ramo "comeu": `foodCount++`
-- [ ] Se `foodCount >= ABILITY_THRESHOLD` **e** esta é a recolha seguinte (ver decisão D1): ativar habilidade
-- [ ] Ao ativar: `isAbilityActive = true`, `abilityTimer = ABILITY_DURATION_MS`, `foodCount = 0`
+- [x] Em `step()`, no ramo "comeu": `foodCount++`
+- [x] Se `foodCount >= ABILITY_THRESHOLD` **e** esta é a recolha seguinte (ver decisão D1): ativar habilidade
+- [x] Ao ativar: `isAbilityActive = true`, `abilityTimer = ABILITY_DURATION_MS`, `foodCount = 0`
 - **Aceite:** 5 frutas enchem a barra; a 6ª ativa; o ciclo recomeça em 0; nunca passa de 5 na UI.
 
 ### E1-03 · Aceleração de 200% durante a habilidade · **M** 🔒 E0-02
-- [ ] No cálculo de `interval` (loop **e** dentro do `while`), aplicar `ABILITY_SPEED_FACTOR` quando `isAbilityActive`
-- [ ] Garantir que a mudança de intervalo **não** reposiciona o acumulador de forma a causar salto
-- [ ] Definir precedência com o turbo do `Espaço` (decisão D3)
+- [x] No cálculo de `interval` (loop **e** dentro do `while`), aplicar `ABILITY_SPEED_FACTOR` quando `isAbilityActive`
+- [x] Garantir que a mudança de intervalo **não** reposiciona o acumulador de forma a causar salto
+- [x] Definir precedência com o turbo do `Espaço` (decisão D3)
 - **Aceite:** durante 2 s os passos ficam ~2× mais rápidos; ao terminar, o ritmo volta exatamente ao anterior (`speed` base preservado).
 
 ### E1-04 · Temporizador no loop · **P** 🔒 E1-02
-- [ ] A cada quadro: se ativo, `abilityTimer -= dt`; se `<= 0`, desligar e manter `abilityTimer = 0`
-- [ ] Pausa: **não** consumir tempo (hoje `dt` só é aplicado ao `acc` em `running` — replicar a regra)
-- [ ] Morte/reset/saída/troca de foco: desligar a habilidade
+- [x] A cada quadro: se ativo, `abilityTimer -= dt`; se `<= 0`, desligar e manter `abilityTimer = 0`
+- [x] Pausa: **não** consumir tempo (hoje `dt` só é aplicado ao `acc` em `running` — replicar a regra)
+- [x] Morte/reset/saída/troca de foco: desligar a habilidade
 - **Aceite:** 2 s reais de jogo; pausar congela o contador; sair do jogo não deixa resíduo.
 
 ### E1-05 · Colisão: auto-corte em vez de morte · **G** 🔒 E1-01
 Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça entrar no corpo.
 
-- [ ] Reaproveitar o índice da colisão já calculado no teste (corpo sem cauda quando não come)
-- [ ] Se `isAbilityActive`: cortar em `snake.slice(0, cutIndex)` e montar `[head, ...cortado]`
-- [ ] Calcular `cutSegmentsCount = snake.length - cutIndex` (segmentos efetivamente removidos)
-- [ ] Bônus: `cutSegmentsCount * CUT_BONUS_PER_SEGMENT` somado ao `score`
-- [ ] Atualizar `prev` para refletir o novo corpo (o desenho usa `prev[i] ?? seg`; garantir que não "pisca")
-- [ ] Propagar o novo tamanho para interpolação (`t`) sem quebrar segmentos
-- [ ] Se a habilidade estiver inativa: comportamento atual (morte) inalterado
+- [x] Reaproveitar o índice da colisão já calculado no teste (corpo sem cauda quando não come)
+- [x] Se `isAbilityActive`: cortar em `snake.slice(0, cutIndex)` e montar `[head, ...cortado]`
+- [x] Calcular `cutSegmentsCount = snake.length - cutIndex` (segmentos efetivamente removidos)
+- [x] Bônus: `cutSegmentsCount * CUT_BONUS_PER_SEGMENT` somado ao `score`
+- [x] Atualizar `prev` para refletir o novo corpo (o desenho usa `prev[i] ?? seg`; garantir que não "pisca")
+- [x] Propagar o novo tamanho para interpolação (`t`) sem quebrar segmentos
+- [x] Se a habilidade estiver inativa: comportamento atual (morte) inalterado
 - **Aceite:** cortar com a habilidade ativa não encerra a partida, soma bônus correto e a cobra continua jogável no quadro seguinte; sem habilidade, morte como hoje.
 
 ### E1-06 · Bônus entra no HUD, no recorde e no som · **M** 🔒 E1-05
-- [ ] Criar callback `onCut(bonus)` análogo a `onEat`
-- [ ] Atualizar `score` (React), comparar/gravar `snakeBest` e tocar som de sucesso
-- [ ] Evitar duplicar lógica de recorde: extrair helper `commitScore(delta)`
+- [x] Criar callback `onCut(bonus)` análogo a `onEat`
+- [x] Atualizar `score` (React), comparar/gravar `snakeBest` e tocar som de sucesso
+- [x] Evitar duplicar lógica de recorde: extrair helper `commitScore(delta)`
 - **Aceite:** o bônus aparece no placar no mesmo quadro, é salvo no recorde e dispara áudio uma única vez.
 
 ### E1-07 · Testes manuais dirigidos · **M** 🔒 E1-06
@@ -103,25 +111,25 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ## E2 — Feedback visual e sonoro
 
 ### E2-01 · Barra de 5 unidades no canto superior esquerdo · **M** 🔒 E1-02
-- [ ] Componente no HUD (ou dentro de `.board-wrap`, canto sup. esq.) com 5 "pips"
-- [ ] Preenchidos = `foodCount`; estado ativo = 5/5 pulsando ou dourado
-- [ ] `aria-label`/`role="progressbar"` com `aria-valuenow` = `foodCount`, `aria-valuemax` = 5
-- [ ] Responsivo: não empurrar o HUD em telas ≤420 px
+- [x] Componente no HUD (ou dentro de `.board-wrap`, canto sup. esq.) com 5 "pips"
+- [x] Preenchidos = `foodCount`; estado ativo = 5/5 pulsando ou dourado
+- [x] `aria-label`/`role="progressbar"` com `aria-valuenow` = `foodCount`, `aria-valuemax` = 5
+- [x] Responsivo: não empurrar o HUD em telas ≤420 px
 - **Aceite:** reflete o estado em tempo real, sem re-render por quadro (só quando `foodCount` muda).
 
 ### E2-02 · Indicador de habilidade (usar a borda) · **P** 🔒 E1-02
-- [ ] Reaproveitar `.board-wrap.is-turbo` (âmbar) para o modo especial
-- [ ] Distinguir visualmente turbo do `Espaço` e habilidade (ex.: brilho mais intenso/pulso na habilidade)
-- [ ] Remover qualquer badge/pílula remanescente (já não existe)
+- [x] Reaproveitar `.board-wrap.is-turbo` (âmbar) para o modo especial
+- [x] Distinguir visualmente turbo do `Espaço` e habilidade (ex.: brilho mais intenso/pulso na habilidade)
+- [x] Remover qualquer badge/pílula remanescente (já não existe)
 - **Aceite:** ao ativar, a borda acende por 2 s; ao expirar, volta ao gradiente normal com transição.
 
 ### E2-03 · Contagem regressiva discreta · **P** 🔒 E2-02
 - [ ] Opcional: esmaecer a borda conforme `abilityTimer` cai (sem texto na tela)
 - **Aceite:** dá para perceber o fim da habilidade sem ler números.
 
-### E2-04 · Áudio da habilidade e do corte · **P**
-- [ ] `sfx.ability()` (ativação) e `sfx.cut()` (corte com bônus) em `src/lib/sound.ts`
-- [ ] Respeitar mudo; sem arquivos de áudio
+### E2-04 · Áudio da habilidade e do corte · **P** ✅
+- [x] `sfx.ability()` (ativação) e `sfx.cut()` (corte com bônus) em `src/lib/sound.ts`
+- [x] Respeitar mudo; sem arquivos de áudio
 - **Aceite:** sons distintos de `eat`/`die`; nada toca com o som desativado.
 
 ### E2-05 · Vibração (preparação para mobile) · **P** 🔒 E4-01
@@ -214,6 +222,7 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ## Decisões pendentes (antes de codar)
 
 A spec do `Roadmap` tem pontos que se contradizem ou não fecham. Proposta padrão em **negrito** — basta confirmar ou trocar.
+**Status: D1–D8 aprovadas em 2026-10-27 (opção 1) e implementadas na branch `feat/habilidade-e-mobile`.**
 
 | ID | Ambiguidade na spec | Proposta |
 | --- | --- | --- |

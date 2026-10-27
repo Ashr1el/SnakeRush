@@ -1,7 +1,7 @@
 # Dossiê do projeto — SnakeRush
 
 > Documento único de especificação. Consolida README, `docs/` e o código-fonte em um só lugar.
-> **Versão documentada:** v2.0.0 (Next.js 16) · **Branches:** `developer` · **Última revisão:** 2026-10-27
+> **Versão documentada:** v2.0.0 (Next.js 16) + mecânica D1–D8 (branch `feat/habilidade-e-mobile`) · **Branches:** `developer`, `feat/habilidade-e-mobile` · **Última revisão:** 2026-10-27
 
 ---
 
@@ -145,6 +145,9 @@ interface Game {
   speed: number;   // ms por passo (diminui ao comer)
   acc: number;     // acumulador de tempo do loop
   deathAt: number; // timestamp da morte (flash)
+  foodCount: number;        // carga da barra de habilidade (0 a 5)
+  isAbilityActive: boolean; // modo especial: turbo + auto-corte
+  abilityTimer: number;     // ms restantes da habilidade
 }
 ```
 
@@ -179,6 +182,10 @@ Todas no topo de `src/components/SnakeGame.tsx`:
 | `MIN_SPEED` | `70` | Intervalo mínimo (velocidade máxima) |
 | `SPEED_STEP` | `3` | Quanto o intervalo cai por fruta |
 | `BOOST_FACTOR` | `0.5` | Multiplicador do intervalo durante o turbo |
+| `ABILITY_THRESHOLD` | `5` | Frutas para encher a barra de carga |
+| `ABILITY_DURATION_MS` | `2000` | Duração da habilidade especial (2 s) |
+| `ABILITY_SPEED_FACTOR` | `0.5` | Multiplicador do intervalo durante a habilidade |
+| `CUT_BONUS_PER_SEGMENT` | `20` | Bônus por segmento cortado (200% de 10) |
 | `BEST_KEY` | `"snakeBest"` | Chave do recorde no `localStorage` |
 
 Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_STEP`, `BOOST_FACTOR`.
@@ -190,9 +197,24 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 - Cada fruta vale **10 pontos** e faz a cobra crescer um segmento.
 - Cada fruta reduz o intervalo entre passos em **3 ms**, até o piso de **70 ms**.
 - A fruta sempre nasce em uma célula livre (`placeFood` sorteia entre as livres).
-- Bater na parede ou no próprio corpo encerra a partida — **não há wrap** de bordas.
+- Bater na parede encerra a partida — **não há wrap** de bordas. Colidir com o próprio corpo também encerra, **exceto** durante a habilidade (auto-corte).
 - O recorde é atualizado durante a partida e exibido no HUD com a barra de velocidade.
 - Não há condição de vitória: tabuleiro cheio → fruta cai em `{0,0}`.
+
+### Barra de carga e habilidade especial (D1–D8)
+
+| Regra | Comportamento |
+| --- | --- |
+| Carga | Cada fruta soma **1** em `foodCount`, até **5** (barra cheia na 5ª fruta) |
+| Ativação | A recolha **seguinte** (6ª do ciclo) ativa a habilidade e zera `foodCount` |
+| Duração | `2000` ms de jogo; a pausa **não** consome o tempo |
+| Velocidade | Intervalo entre passos `×0.5` (`ABILITY_SPEED_FACTOR`); **não** acumula com o turbo do `Espaço` |
+| Expiração | Só no início do quadro seguinte (`D6`) — vale até o fim do quadro corrente |
+| Auto-corte | Colisão com o corpo durante a habilidade **não** mata: mantém a cabeça + o trecho anterior ao gomo atingido |
+| Bônus | `20` pontos por segmento cortado (`CUT_BONUS_PER_SEGMENT`), somados ao placar e ao recorde |
+| Sem habilidade | Colisão com o corpo segue sendo derrota |
+
+Detalhe de implementação: a colisão é detectada **antes** de a nova cabeça entrar no corpo, então `hitIndex` é o índice do gomo atingido no corpo atual; a cobra vira `[head, ...snake.slice(0, hitIndex)]` e o total cortado é `snake.length - hitIndex`.
 
 ### Passo da simulação (`step`)
 
@@ -301,12 +323,15 @@ Fundo do `body`: três gradientes radiais (ciano, rosa, violeta) sobre `linear-g
 | --- | --- |
 | `.app` | Coluna centralizada, `gap: 18px`, `max-width: 460px` |
 | `.title` | Texto com gradiente ciano→lime→rosa recortado (`background-clip: text`) |
-| `.hud` | Flex com wrap: 3 cards + botão de som |
+| `.hud` | Flex com wrap: 3 cards + card de carga + botão de som |
 | `.card` | Painel translúcido com `backdrop-filter: blur(8px)`, raio 14, valor 22 px/800 |
 | `.card.cyan` / `.card.pink` | Valor colorido com brilho (`text-shadow`) |
 | `.meter` | Barra de 8 px, raio 99, preenchimento com gradiente lime→amber→rosa, transição de 0.25 s |
+| `.card.charge` | Card da carga: 5 "pips" de 8 px; `.active` deixa borda e rótulo âmbar |
+| `.card.charge .pips i.on` | Pip preenchido: gradiente âmbar + brilho |
 | `.board-wrap` | Moldura de 6 px, raio 20, gradiente ciano→violeta→rosa, sombra `0 20px 50px` |
-| `.board-wrap.is-turbo` | Moldura em âmbar (`#fbbf24 → #fde68a → #f59e0b`) + halo amarelo, transição 0.18 s — **indicador de turbo** |
+| `.board-wrap.is-turbo` | Moldura em âmbar (`#fbbf24 → #fde68a → #f59e0b`) + halo amarelo, transição 0.18 s — **turbo do `Espaço`** |
+| `.board-wrap.is-ability` | Moldura dourada mais intensa (halo 46 px + anel de 2 px) — **habilidade especial** |
 | `canvas` | `aspect-ratio: 1/1`, raio 14, `touch-action: none` |
 | `.overlay` | `inset: 6px`, fundo `rgba(10,15,39,0.72)`, blur 6 px, centralizado |
 | `.btn` | Gradiente ciano→lime, raio 12, hover eleva 2 px |
@@ -318,9 +343,11 @@ Fundo do `body`: três gradientes radiais (ciano, rosa, violeta) sobre `linear-g
 
 Responsividade: `@media (max-width: 420px)` reduz d-pad (56 px) e padding dos cards.
 
-### Indicador de turbo
+### Indicador de turbo e da habilidade
 
 O turbo **não** usa badge/pílula. Ele é comunicado pela **borda do tabuleiro**: `.board-wrap` recebe `is-turbo` enquanto `boost` é verdadeiro, acendendo em amarelo e voltando ao gradiente normal (com transição) ao soltar a tecla, pausar, morrer, sair, resetar ou perder o foco.
+
+A habilidade especial usa a mesma linguagem com intensidade maior (`is-ability`, borda dourada com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Carga** no HUD mostra 5 pips: preenchidos conforme `foodCount` e cheios enquanto a habilidade está ativa.
 
 ### Acessibilidade
 
