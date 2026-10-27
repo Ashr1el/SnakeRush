@@ -9,6 +9,8 @@ next-env.d.ts
 
 # Vercel (link do projeto e artefatos locais)
 .vercel/
+.env*
+!.env.example
 
 # build antigo (Vite) — mantido por segurança caso surja um dist/ residual
 dist/
