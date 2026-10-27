@@ -1,5 +1,7 @@
+'use client';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { sfx } from './sound';
+import { sfx } from '@/lib/sound';
 
 type Cell = { x: number; y: number };
 type Dir = { x: number; y: number };
@@ -235,16 +237,29 @@ export default function SnakeGame() {
   const gameRef = useRef<Game>(createGame());
   const statusRef = useRef<Status>('idle');
   const boostRef = useRef(false);
-  const bestRef = useRef<number>(
-    typeof localStorage !== 'undefined' ? Number(localStorage.getItem(BEST_KEY) || 0) : 0
-  );
+  const bestRef = useRef(0);
 
   const [status, setStatus] = useState<Status>('idle');
   const [score, setScore] = useState(0);
-  const [best, setBest] = useState(bestRef.current);
+  const [best, setBest] = useState(0);
   const [boost, setBoost] = useState(false);
   const [speed, setSpeed] = useState(BASE_SPEED);
-  const [muted, setMuted] = useState(sfx.isMuted());
+  const [muted, setMuted] = useState(false);
+
+  // Hidratação: recorde e mudo vêm do localStorage apenas depois da montagem,
+  // para o HTML gerado no servidor bater com o primeiro render do cliente.
+  useEffect(() => {
+    try {
+      const stored = Number(localStorage.getItem(BEST_KEY) || 0);
+      if (Number.isFinite(stored) && stored > 0) {
+        bestRef.current = stored;
+        setBest(stored);
+      }
+    } catch {
+      /* storage indisponível */
+    }
+    setMuted(sfx.isMuted());
+  }, []);
 
   const onEat = useCallback((newScore: number, newSpeed: number) => {
     sfx.eat();

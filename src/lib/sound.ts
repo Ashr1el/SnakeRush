@@ -11,8 +11,13 @@ type ToneOpts = {
 const MUTED_KEY = 'snakeMuted';
 
 let audioCtx: AudioContext | null = null;
-let muted =
-  typeof localStorage !== 'undefined' ? localStorage.getItem(MUTED_KEY) === '1' : false;
+
+let muted = false;
+try {
+  if (typeof localStorage !== 'undefined') muted = localStorage.getItem(MUTED_KEY) === '1';
+} catch {
+  /* storage indisponível (SSR, modo restrito) */
+}
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined' || muted) return null;
