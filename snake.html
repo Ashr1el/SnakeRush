@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jogo da Cobrinha</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a1a2e;
+    color: #eee;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  h1 { margin: 0; font-size: 28px; }
+  .hud {
+    display: flex;
+    gap: 32px;
+    font-size: 18px;
+  }
+  .hud span { color: #7dd3fc; font-weight: 700; }
+  canvas {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .row { display: flex; gap: 8px; }
+  button {
+    width: 60px; height: 60px;
+    font-size: 24px;
+    border: none;
+    border-radius: 10px;
+    background: #0f3460;
+    color: #eee;
+    cursor: pointer;
+    user-select: none;
+  }
+  button:active { background: #e94560; }
+  .info { color: #94a3b8; font-size: 14px; text-align: center; max-width: 400px; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
+    border-radius: 8px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay .box {
+    background: #16213e;
+    padding: 24px 32px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  .overlay h2 { margin: 0 0 12px; }
+  .overlay button {
+    width: auto;
+    height: auto;
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+  .board-wrap { position: relative; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🐍 Jogo da Cobrinha</h1>
+  <div class="hud">
+    <div>Pontos: <span id="score">0</span></div>
+    <div>Recorde: <span id="best">0</span></div>
+  </div>
+  <div class="board-wrap">
+    <canvas id="board" width="400" height="400"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="box">
+        <h2 id="title">Jogo da Cobrinha</h2>
+        <p id="msg">Use as setas do teclado para jogar</p>
+        <button id="startBtn">Iniciar</button>
+      </div>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="row"><button data-dir="up">↑</button></div>
+    <div class="row">
+      <button data-dir="left">←</button>
+      <button data-dir="down">↓</button>
+      <button data-dir="right">→</button>
+    </div>
+  </div>
+  <p class="info">Controles: setas do teclado ou botões na tela. Coma a comida vermelha para crescer. Não bata nas paredes nem em si mesma.</p>
+</div>
+
+<script>
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const GRID = 20;
+const COLS = canvas.width / GRID;
+const ROWS = canvas.height / GRID;
+
+let snake, dir, nextDir, food, score, best, running, loopId, speed;
+
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const overlay = document.getElementById('overlay');
+const titleEl = document.getElementById('title');
+const msgEl = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+
+best = parseInt(localStorage.getItem('snakeBest') || '0', 10);
+bestEl.textContent = best;
+
+function reset() {
+  snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  dir = { x: 1, y: 0 };
+  nextDir = { x: 1, y: 0 };
+  score = 0;
+  speed = 120;
+  placeFood();
+  scoreEl.textContent = score;
+}
+
+function placeFood() {
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+  } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+  food = pos;
+}
+
+function draw() {
+  ctx.fillStyle = '#16213e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  for (let i = 0; i <= COLS; i++) {
+    ctx.beginPath(); ctx.moveTo(i * GRID, 0); ctx.lineTo(i * GRID, canvas.height); ctx.stroke();
+  }
+  for (let j = 0; j <= ROWS; j++) {
+    ctx.beginPath(); ctx.moveTo(0, j * GRID); ctx.lineTo(canvas.width, j * GRID); ctx.stroke();
+  }
+
+  // food
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.arc(food.x * GRID + GRID / 2, food.y * GRID + GRID / 2, GRID / 2 - 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // snake
+  snake.forEach((seg, i) => {
+    ctx.fillStyle = i === 0 ? '#4ade80' : '#22c55e';
+    ctx.fillRect(seg.x * GRID + 1, seg.y * GRID + 1, GRID - 2, GRID - 2);
+  });
+}
+
+function step() {
+  dir = nextDir;
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+  // wall collision
+  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+    gameOver(); return;
+  }
+  // self collision
+  if (snake.some(s => s.x === head.x && s.y === head.y)) {
+    gameOver(); return;
+  }
+
+  snake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    score += 10;
+    scoreEl.textContent = score;
+    if (score > best) { best = score; bestEl.textContent = best; localStorage.setItem('snakeBest', best); }
+    placeFood();
+    if (speed > 60) speed -= 2;
+  } else {
+    snake.pop();
+  }
+  draw();
+}
+
+function gameOver() {
+  running = false;
+  clearInterval(loopId);
+  titleEl.textContent = 'Fim de Jogo';
+  msgEl.textContent = `Pontuação: ${score}`;
+  startBtn.textContent = 'Jogar Novamente';
+  overlay.classList.remove('hidden');
+}
+
+function start() {
+  reset();
+  running = true;
+  overlay.classList.add('hidden');
+  draw();
+  runLoop();
+}
+
+function runLoop() {
+  if (!running) return;
+  step();
+  if (running) setTimeout(runLoop, speed);
+}
+
+const KEY_MAP = {
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  w: { x: 0, y: -1 },
+  s: { x: 0, y: 1 },
+  a: { x: -1, y: 0 },
+  d: { x: 1, y: 0 },
+};
+
+window.addEventListener('keydown', (e) => {
+  const d = KEY_MAP[e.key];
+  if (!d) return;
+  e.preventDefault();
+  // prevent reversing
+  if (d.x === -dir.x && d.y === -dir.y) return;
+  nextDir = d;
+});
+
+document.querySelectorAll('button[data-dir]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const map = { up: {x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+    const d = map[btn.dataset.dir];
+    if (d.x === -dir.x && d.y === -dir.y) return;
+    nextDir = d;
+  });
+});
+
+startBtn.addEventListener('click', start);
+
+draw();
+</script>
+</body>
+</html>

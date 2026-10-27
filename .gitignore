@@ -1,0 +1,17 @@
+# dependências
+node_modules/
+
+# build
+dist/
+
+# snapshot local de rollback (não versionado)
+.backup/
+
+# logs e arquivos de SO
+*.log
+.DS_Store
+Thumbs.db
+
+# editores
+.vscode/
+.idea/
