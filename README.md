@@ -33,7 +33,7 @@ Snake Rush é um jogo feito em **React + TypeScript + Next.js (App Router)**, co
 - Máquina de estados completa: título → jogando → pausado → fim de jogo, com overlays e opções de resumir, resetar ou sair.
 - Efeitos sonoros sintetizados com Web Audio API (comer, morrer, iniciar, pausar, clicar) e botão de mudo persistido.
 - Recorde salvo no `localStorage`.
-- **Recursos:** a cada 5 recursos, 4 são vermelhos (1 célula, 10 pts, +1 gomo) e 1 é laranja (bloco 2×2, 40 pts, +3 gomos).
+- **Recursos:** a cada 6 recursos, 5 são vermelhos (1 célula, 10 pts, +1 gomo) e 1 é laranja (bloco 2×2, 40 pts, +3 gomos).
 - **Habilidade especial:** 5 blocos laranja ativam 4 s de turbo com auto-corte (20 pts por gomo) e crescimento 3× ao comer.
 - Layout responsivo (desktop e mobile) com d-pad na tela, swipe no tabuleiro e botão de turbo.
 - **PWA instalável** com funcionamento offline (manifest, ícones e service worker próprios, sem dependências).
@@ -95,10 +95,10 @@ Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticam
 
 ## Regras e pontuação
 
-- **Vermelho** (4 de cada 5 recursos): **10 pontos**, cresce 1 gomo e reduz o intervalo entre passos em **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
-- **Laranja** (1 de cada 5): bloco de **4 células (2×2)**, **40 pontos**, cresce 3 gomos. Encostar em qualquer célula coleta o bloco inteiro.
+- **Vermelho** (5 de cada 6 recursos): **10 pontos**, cresce 1 gomo e reduz o intervalo entre passos em **3 ms**, até o mínimo de `70 ms` (começa em `130 ms`).
+- **Laranja** (1 de cada 6): bloco de **4 células (2×2)**, **40 pontos**, cresce 3 gomos. Encostar em qualquer célula coleta o bloco inteiro.
 - O recurso sempre nasce em área livre; sem espaço para o bloco, o laranja cai para 1 célula.
-- **Barra da habilidade:** só o laranja conta — **5 blocos** ativam a habilidade por **4 s**. O card do HUD mostra dois marcadores de 5 pips: vermelho em cima (recursos vermelhos) e laranja embaixo (blocos laranja).
+- **Barra da habilidade:** só o laranja conta — **5 blocos** ativam a habilidade por **4 s**. O card do HUD mostra dois marcadores de 5 pips: vermelho em cima (recursos vermelhos, zerado a cada laranja) e laranja embaixo (blocos laranja).
 - **Habilidade:** intervalo pela metade (não acumula com o turbo do `Espaço`), **crescimento ×3** ao comer (vermelho +3, laranja +9) e encostar no próprio corpo **corta** em vez de matar — cada gomo cortado vale **20 pontos**.
 - Fora da habilidade, bater na parede ou no próprio corpo encerra a partida (sem "atravessar" bordas).
 - O recorde é atualizado durante a partida e exibido no HUD.

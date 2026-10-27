@@ -171,7 +171,7 @@ interface Game {
   dir: Dir;        // direção atual
   queue: Dir[];    // até 2 direções pendentes
   food: Food;
-  spawns: number;  // recursos gerados (sequência 4 vermelhos : 1 laranja)
+  spawns: number;  // recursos gerados (sequência 5 vermelhos : 1 laranja)
   score: number;
   speed: number;   // ms por passo (diminui ao comer)
   acc: number;     // acumulador de tempo do loop
@@ -214,7 +214,7 @@ Regras e ritmo em `src/game/engine.ts`; `BEST_KEY` fica no componente.
 | `MIN_SPEED` | `70` | Intervalo mínimo (velocidade máxima) |
 | `SPEED_STEP` | `3` | Quanto o intervalo cai por recurso |
 | `BOOST_FACTOR` | `0.5` | Multiplicador do intervalo durante o turbo |
-| `SPECIAL_EVERY` | `5` | 1 recurso laranja a cada 5 gerados (4 vermelhos : 1 laranja) |
+| `SPECIAL_EVERY` | `6` | 1 recurso laranja a cada 6 gerados (5 vermelhos : 1 laranja) |
 | `ABILITY_THRESHOLD` | `5` | Laranjas para ativar a habilidade |
 | `ABILITY_DURATION_MS` | `4000` | Duração da habilidade especial (4 s) |
 | `ABILITY_SPEED_FACTOR` | `0.5` | Multiplicador do intervalo durante a habilidade |
@@ -230,7 +230,7 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 
 ## 8. Regras do jogo
 
-- A cada **5 recursos gerados**, 4 são **vermelhos** (1 célula) e 1 é **laranja** (bloco 2×2, 4 células) — em ciclo: 4 vermelhos, 1 laranja, 4 vermelhos, 1 laranja…
+- A cada **6 recursos gerados**, 5 são **vermelhos** (1 célula) e 1 é **laranja** (bloco 2×2, 4 células) — em ciclo: 5 vermelhos, 1 laranja, 5 vermelhos, 1 laranja…
 - **Vermelho:** 10 pontos, +1 gomo, −3 ms no intervalo entre passos.
 - **Laranja:** 40 pontos, +3 gomos, −3 ms no intervalo. Encostar em **qualquer** das 4 células coleta o bloco inteiro.
 - O recurso sempre nasce em área livre (`placeFood` sorteia entre as células — ou blocos 2×2 — livres). Tabuleiro sem espaço para 2×2 → o laranja cai para 1 célula livre.
@@ -243,7 +243,8 @@ Ajustes de "sensação" sem tocar em lógica: `BASE_SPEED`, `MIN_SPEED`, `SPEED_
 | Regra | Comportamento |
 | --- | --- |
 | Carga | **Só o laranja** conta: cada bloco soma **1** em `charge` (máximo 5). O vermelho soma **1** em `redCharge` (máximo 5), que é só informativo e não ativa nada (D9) |
-| Ativação | Ao coletar o **5º laranja** a habilidade ativa na hora; `charge` e `redCharge` voltam a 0 |
+| Ciclo vermelho | Cada laranja coletado zera `redCharge`, que recomeça do 0 (o ciclo é 5 vermelhos : 1 laranja) |
+| Ativação | Ao coletar o **5º laranja** a habilidade ativa na hora; `charge` volta a 0 |
 | Duração | `4000` ms de jogo; a pausa **não** consome o tempo |
 | Velocidade | Intervalo entre passos `×0.5` (`ABILITY_SPEED_FACTOR`); **não** acumula com o turbo do `Espaço` |
 | Crescimento | Durante a habilidade, **crescimento ×3**: vermelho +3 gomos, laranja +9 (D9) |
@@ -391,7 +392,7 @@ Responsividade: `@media (max-width: 420px)` reduz d-pad (56 px) e padding dos ca
 
 O turbo **não** usa badge/pílula. Ele é comunicado pela **borda do tabuleiro**: `.board-wrap` recebe `is-turbo` enquanto `boost` é verdadeiro, acendendo em amarelo e voltando ao gradiente normal (com transição) ao soltar a tecla, pausar, morrer, sair, resetar ou perder o foco.
 
-A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Habilidade** no HUD mostra duas fileiras de 5 pips: a de cima, vermelha, acompanha `redCharge`; a de baixo, laranja, acompanha `charge` e esvazia em 5 degraus enquanto a habilidade está ativa. Os dois marcadores reiniciam juntos quando a habilidade ativa.
+A habilidade especial usa a mesma linguagem com outra cor (`is-ability`, moldura **laranja** com anel de 2 px e halo de 46 px) e tem precedência sobre `is-turbo`. Além disso, o card **Habilidade** no HUD mostra duas fileiras de 5 pips: a de cima, vermelha, acompanha `redCharge`; a de baixo, laranja, acompanha `charge` e esvazia em 5 degraus enquanto a habilidade está ativa. O marcador vermelho zera a cada laranja coletado; o laranja zera quando a habilidade ativa.
 
 ### Acessibilidade
 
@@ -627,10 +628,10 @@ npm test
 
 | Caso | O que garante |
 | --- | --- |
-| Sequência de geração | 4 vermelhos e 1 laranja, em ciclo |
+| Sequência de geração | 5 vermelhos e 1 laranja, em ciclo |
 | Bloco laranja | 4 células em 2×2, dentro do tabuleiro e fora da cobra; fallback de 1 célula |
 | Barra e ativação | vermelho não carrega; 5º laranja ativa na hora e zera a barra |
-| Marcador vermelho | `redCharge` conta até 5, não ativa nada e zera junto com a ativação |
+| Marcador vermelho | `redCharge` conta até 5, não ativa nada e zera a cada laranja coletado |
 | Pontos | vermelho 10, laranja 40 |
 | Crescimento | vermelho +1, laranja +3; durante a habilidade ×3 (3 e 9) |
 | Aceleração | `speed` cai por recurso e respeita `MIN_SPEED` |

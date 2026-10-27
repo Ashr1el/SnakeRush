@@ -16,7 +16,7 @@
 
 **2026-10-27 — revisão da mecânica de recursos (D9):**
 
-- A cada 5 recursos gerados, 4 são **vermelhos** (1 célula, 10 pts, +1 gomo) e 1 é **laranja** (bloco **2×2**, 40 pts, +3 gomos).
+- A cada 6 recursos gerados, 5 são **vermelhos** (1 célula, 10 pts, +1 gomo) e 1 é **laranja** (bloco **2×2**, 40 pts, +3 gomos). O contador vermelho do HUD zera a cada laranja coletado.
 - **Só o laranja** carrega a barra (1 por bloco); 5 laranjas ativam a habilidade **na hora**.
 - Habilidade dura **4 s** (dobro) e o crescimento durante ela é **×3** (vermelho +3, laranja +9).
 - Revisão refletida em `engine.ts`, `engine.test.ts`, `DOSSIER.md`, `README.md` e `docs/arquitetura.md`.
@@ -85,7 +85,7 @@ Resolve a tabela [Decisões pendentes](#decisões-pendentes-antes-de-codar). Sem
 - [x] Em `step()`, no ramo "comeu": se o recurso for `special` (laranja), `charge++`
 - [x] Se `charge >= ABILITY_THRESHOLD`: ativar habilidade **na hora** (D9)
 - [x] Ao ativar: `isAbilityActive = true`, `abilityTimer = ABILITY_DURATION_MS`, `charge = 0`
-- **Aceite:** 4 vermelhos + 1 laranja por ciclo; 5 laranjas ativam; o ciclo recomeça em 0; nunca passa de 5 na UI.
+- **Aceite:** 5 vermelhos + 1 laranja por ciclo; 5 laranjas ativam; o ciclo recomeça em 0; nunca passa de 5 na UI.
 
 ### E1-03 · Aceleração de 200% durante a habilidade · **M** 🔒 E0-02
 - [x] No cálculo de `interval` (loop **e** dentro do `while`), aplicar `ABILITY_SPEED_FACTOR` quando `isAbilityActive`
@@ -120,7 +120,7 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 ### E1-07 · Testes manuais dirigidos · **M** 🔒 E1-06
 - [ ] Cenários: ativar e cortar; cortar sem habilidade (morte); cortar no último ms; pausar durante habilidade; habilidade expirando no mesmo passo de uma colisão
 - [ ] Cenário de borda: cobra de 3 segmentos, colisão na cauda (não deve cortar errado)
-- [x] Cobertura automatizada dos cenários de regra em `src/game/engine.test.ts` (`npm test`): sequência 4 vermelhos : 1 laranja, bloco 2×2, ativação no 5º laranja, crescimento 1/4 e ×3, corte com bônus, morte por corpo sem habilidade, parede, barra e fila de direções
+- [x] Cobertura automatizada dos cenários de regra em `src/game/engine.test.ts` (`npm test`): sequência 5 vermelhos : 1 laranja, bloco 2×2, ativação no 5º laranja, crescimento 1/3 e ×3, corte com bônus, morte por corpo sem habilidade, parede, barra e fila de direções
 - **Aceite:** todos os cenários registrados neste arquivo com resultado.
 - **Pendente:** os cenários dependentes de jogar (timing do último ms, pausa no meio da habilidade) exigem sessão manual.
 
@@ -259,7 +259,7 @@ A spec do `Roadmap` tem pontos que se contradizem ou não fecham. Proposta padr�
 | **D6** | Habilidade expira exatamente no passo da colisão | **Habilidade vale até o fim do quadro**; expira só no início do quadro seguinte |
 | **D7** | PWA (E3) e Capacitor (E4) são opções concorrentes? | **Ambos**, em ondas separadas: PWA primeiro (sem loja), nativo depois |
 | **D8** | ID do app / nome nas lojas | `com.exemplo.snakerush` provisório — definir antes de E4-02 |
-| **D9** | Recurso especial, valor e efeito durante a habilidade | **4 vermelhos : 1 laranja** (bloco 2×2). Vermelho 10 pts/+1 gomo; laranja 40 pts/+3 gomos. **Só o laranja** carrega a barra; 5 ativam a habilidade, que dura **4 s** e dá **crescimento ×3** (vermelho +3, laranja +9) |
+| **D9** | Recurso especial, valor e efeito durante a habilidade | **5 vermelhos : 1 laranja** (bloco 2×2). O contador vermelho zera a cada laranja coletado. Vermelho 10 pts/+1 gomo; laranja 40 pts/+3 gomos. **Só o laranja** carrega a barra; 5 ativam a habilidade, que dura **4 s** e dá **crescimento ×3** (vermelho +3, laranja +9) |
 
 ## Dependências críticas
 

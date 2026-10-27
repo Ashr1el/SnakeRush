@@ -21,7 +21,7 @@ export const BASE_SPEED = 130; // ms por passo
 export const MIN_SPEED = 70; // velocidade máxima
 export const SPEED_STEP = 3; // ms mais rápido a cada recurso
 export const BOOST_FACTOR = 0.5; // turbo da barra de espaço
-export const SPECIAL_EVERY = 5; // 1 recurso laranja a cada 5 gerados (4 vermelhos + 1 laranja)
+export const SPECIAL_EVERY = 6; // 1 laranja a cada 6 gerados (5 vermelhos + 1 laranja)
 export const ABILITY_THRESHOLD = 5; // laranjas para ativar a habilidade
 export const ABILITY_DURATION_MS = 4000; // duração do modo especial (4 s)
 export const ABILITY_SPEED_FACTOR = 0.5; // intervalo ×0.5 durante a habilidade (D2)
@@ -37,7 +37,7 @@ export interface Game {
   dir: Dir;
   queue: Dir[];
   food: Food;
-  spawns: number; // recursos gerados (define a sequência 4 vermelhos : 1 laranja)
+  spawns: number; // recursos gerados (define a sequência 5 vermelhos : 1 laranja)
   score: number;
   speed: number;
   acc: number;
@@ -58,7 +58,7 @@ function onSnake(g: Game, x: number, y: number): boolean {
 }
 
 /**
- * Sorteia o próximo recurso respeitando a sequência 4 vermelhos : 1 laranja.
+ * Sorteia o próximo recurso respeitando a sequência 5 vermelhos : 1 laranja.
  * O laranja é um bloco 2×2 (4 células) encaixado em área livre; se o tabuleiro
  * estiver apertado demais, cai para uma única célula laranja.
  */
@@ -232,6 +232,8 @@ export function step(
   // D9: só o recurso laranja carrega a barra; o vermelho tem marcador próprio
   if (kind === 'special') {
     g.charge = Math.min(ABILITY_THRESHOLD, g.charge + 1);
+    // o ciclo vermelho recomeça a cada laranja coletado
+    g.redCharge = 0;
   } else {
     g.redCharge = Math.min(ABILITY_THRESHOLD, g.redCharge + 1);
   }

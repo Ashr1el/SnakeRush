@@ -677,7 +677,7 @@ export default function SnakeGame() {
       <p className="info">
         Controles: setas do teclado, <kbd>WASD</kbd>, os botões abaixo ou um arrasto no tabuleiro.
         Segure <kbd>Espaço</kbd> (ou o botão de turbo) para acelerar e <kbd>Esc</kbd> para pausar.
-        A cada 5 recursos nasce um bloco laranja de 4 células (40 pts e +3 gomos) — a cada 5
+        A cada 5 recursos vermelhos nasce um bloco laranja de 4 células (40 pts e +3 gomos) — a cada 5
         blocos a habilidade ativa por 4 s: turbo, corte do próprio corpo (20 pts por gomo) e
         crescimento 3× ao comer. Fora da habilidade, encostar na parede ou no corpo encerra a
         partida.

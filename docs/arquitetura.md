@@ -78,7 +78,7 @@ interface Game {
   dir: Dir;               // direção atual
   queue: Dir[];           // até 2 direções pendentes
   food: Food;
-  spawns: number;         // recursos gerados (define a sequência 4 : 1)
+  spawns: number;         // recursos gerados (define a sequência 5 : 1)
   score: number;
   speed: number;          // ms por passo (diminui ao comer)
   acc: number;            // acumulador de tempo do loop
@@ -156,16 +156,17 @@ Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`,
 
 | Recurso | Frequência | Células | Pontos | Gomos | Barra |
 | --- | --- | --- | --- | --- | --- |
-| Vermelho | 4 de cada 5 | 1 | 10 | +1 | não conta |
-| Laranja | 1 de cada 5 | 4 (bloco 2×2) | 40 | +3 | +1 |
+| Vermelho | 5 de cada 6 | 1 | 10 | +1 | não conta |
+| Laranja | 1 de cada 6 | 4 (bloco 2×2) | 40 | +3 | +1 |
 
-`placeFood` decide o tipo por `spawns % 5 === 4` e, para o laranja, sorteia um canto livre onde caibam as 4 células. Se não houver nenhum bloco 2×2 livre, o laranja cai para uma única célula livre (o `kind` continua `special`).
+`placeFood` decide o tipo por `spawns % 6 === 5` e, para o laranja, sorteia um canto livre onde caibam as 4 células. Se não houver nenhum bloco 2×2 livre, o laranja cai para uma única célula livre (o `kind` continua `special`).
 
 ### Barra de laranjas e habilidade
 
 | Situação | Efeito |
 | --- | --- |
 | Vermelho coletado | +10 pts, +1 gomo, `redCharge += 1` (marcador vermelho, não ativa nada) |
+| Laranja coletado (ciclo vermelho) | `redCharge = 0`: o contador vermelho recomeça |
 | Laranja coletado | +40 pts, +3 gomos, `charge += 1` |
 | 5º laranja | ativa a habilidade **na hora** (`charge = 0`, `redCharge = 0`, `abilityTimer = 4000`) |
 | Durante a habilidade | intervalo ×0.5; **crescimento ×3** (vermelho +3, laranja +9); encostar no corpo corta |
@@ -207,7 +208,7 @@ Tudo é desenhado a cada quadro, nesta ordem:
 
 O HUD, o overlay e a borda de estado do tabuleiro são HTML/CSS sobre o canvas (`position: absolute`). A borda muda de cor: **laranja** durante a habilidade, **amarela** no turbo do Espaço, neutra no resto.
 
-O card **Habilidade** empilha dois marcadores de 5 pips, do mesmo tamanho: **vermelho em cima** (`redCharge`) e **laranja embaixo** (`charge`, que vira a contagem regressiva de 5 → 1 durante o efeito). Ambos zeram juntos na ativação.
+O card **Habilidade** empilha dois marcadores de 5 pips, do mesmo tamanho: **vermelho em cima** (`redCharge`, zerado a cada laranja coletado) e **laranja embaixo** (`charge`, que zera na ativação e vira a contagem regressiva de 5 → 1 durante o efeito).
 
 ---
 
@@ -246,7 +247,7 @@ Regras e ritmo em `src/game/engine.ts`; chave de persistência no componente.
 | `MIN_SPEED` | `70` | Intervalo mínimo, ou seja, velocidade máxima |
 | `SPEED_STEP` | `3` | Quanto o intervalo cai por recurso comido |
 | `BOOST_FACTOR` | `0.5` | Multiplicador do intervalo no turbo |
-| `SPECIAL_EVERY` | `5` | 1 recurso laranja a cada 5 gerados (4 vermelhos : 1 laranja) |
+| `SPECIAL_EVERY` | `6` | 1 recurso laranja a cada 6 gerados (5 vermelhos : 1 laranja) |
 | `ABILITY_THRESHOLD` | `5` | Laranjas coletados para ativar a habilidade |
 | `ABILITY_DURATION_MS` | `4000` | Duração da habilidade (4 s) |
 | `ABILITY_SPEED_FACTOR` | `0.5` | Multiplicador do intervalo durante a habilidade (não acumula com o turbo) |
@@ -277,7 +278,7 @@ Todas as chamadas são protegidas por `try/catch`: sem `localStorage` o jogo rod
 npm test   # node --test "src/**/*.test.ts"
 ```
 
-Casos: sequência 4 vermelhos : 1 laranja, bloco laranja 2×2 (limites e células livres) com fallback de 1 célula, vermelho fora da barra e ativação no 5º laranja, pontuação 10/40, crescimento 1/4 e ×3 durante a habilidade, coleta do bloco por qualquer célula, aceleração até o mínimo, `stepInterval` (turbo ×0.5 e sem acúmulo com a habilidade), morte por parede e por corpo, corte com bônus, contagem da barra (`abilityPips`), emenda/saída da habilidade (`advanceAbility`) e descarte de inversão de 180°.
+Casos: sequência 5 vermelhos : 1 laranja, bloco laranja 2×2 (limites e células livres) com fallback de 1 célula, vermelho fora da barra e ativação no 5º laranja, pontuação 10/40, crescimento 1/3 e ×3 durante a habilidade, coleta do bloco por qualquer célula, aceleração até o mínimo, `stepInterval` (turbo ×0.5 e sem acúmulo com a habilidade), morte por parede e por corpo, corte com bônus, contagem da barra (`abilityPips`), emenda/saída da habilidade (`advanceAbility`) e descarte de inversão de 180°.
 
 ---
 

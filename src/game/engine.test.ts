@@ -54,10 +54,10 @@ function feed(g: Game, kind: FoodKind, extraCells = kind === 'special' ? 3 : 0):
   return step(g, noop, noop, noop);
 }
 
-test('sequência de geração: 4 vermelhos e 1 laranja', () => {
+test('sequência de geração: 5 vermelhos e 1 laranja', () => {
   const g = createGame(); // já gera o 1º recurso
   const kinds: FoodKind[] = [g.food.kind];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 11; i++) {
     placeFood(g);
     kinds.push(g.food.kind);
   }
@@ -67,7 +67,9 @@ test('sequência de geração: 4 vermelhos e 1 laranja', () => {
     'normal',
     'normal',
     'normal',
+    'normal',
     'special',
+    'normal',
     'normal',
     'normal',
     'normal',
@@ -112,7 +114,7 @@ test('tabuleiro apertado: laranja cai para 1 célula livre', () => {
     }
   }
 
-  g.spawns = 4; // força o próximo a ser laranja
+  g.spawns = 5; // força o próximo a ser laranja
   placeFood(g);
 
   assert.equal(g.food.kind, 'special');
@@ -165,10 +167,10 @@ test('pontuação: vermelho 10, laranja 40', () => {
   assert.equal(g.score, POINTS_NORMAL + POINTS_SPECIAL);
 });
 
-test('marcador vermelho: conta até 5 e zera quando a habilidade ativa', () => {
+test('marcador vermelho: conta até 5 e zera a cada laranja coletado', () => {
   const g = createGame();
 
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 3; i++) {
     resetSnake(g);
     g.food = { kind: 'normal', cells: [ahead(g)] };
     step(g, noop, noop, noop);
@@ -176,11 +178,27 @@ test('marcador vermelho: conta até 5 e zera quando a habilidade ativa', () => {
     assert.equal(g.charge, 0, 'vermelho não mexe na barra de laranjas');
   }
 
+  // primeiro laranja: zera os vermelhos sem ativar a habilidade
+  resetSnake(g);
+  g.food = { kind: 'special', cells: [ahead(g)] };
+  step(g, noop, noop, noop);
+  assert.equal(g.redCharge, 0, 'o laranja reinicia o contador vermelho');
+  assert.equal(g.charge, 1);
+  assert.equal(g.isAbilityActive, false);
+
+  for (let i = 1; i <= 5; i++) {
+    resetSnake(g);
+    g.food = { kind: 'normal', cells: [ahead(g)] };
+    step(g, noop, noop, noop);
+    assert.equal(g.redCharge, i);
+  }
+
   resetSnake(g);
   g.food = { kind: 'normal', cells: [ahead(g)] };
   step(g, noop, noop, noop);
   assert.equal(g.redCharge, 5, 'não passa de 5');
 
+  // laranja com a barra quase cheia: zera os vermelhos e ativa a habilidade
   g.charge = ABILITY_THRESHOLD - 1;
   resetSnake(g);
   g.food = { kind: 'special', cells: [ahead(g)] };
@@ -188,7 +206,7 @@ test('marcador vermelho: conta até 5 e zera quando a habilidade ativa', () => {
 
   assert.equal(g.isAbilityActive, true);
   assert.equal(g.charge, 0);
-  assert.equal(g.redCharge, 0, 'os dois marcadores reiniciam juntos');
+  assert.equal(g.redCharge, 0);
 });
 
 test('crescimento fora da habilidade: vermelho +1, laranja +3', () => {
