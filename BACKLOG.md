@@ -189,10 +189,12 @@ Ponto mais delicado — a colisão hoje é testada **antes** de a nova cabeça e
 - **Aceite:** `npx cap sync` conclui sem erro.
 
 ### E4-03 · Plataformas · **G** 🔒 E4-02
-- [ ] `npx cap add android` (requer Android SDK)
-- [ ] `npx cap add ios` (requer macOS + Xcode — registrar bloqueio se não houver)
+> ⚠️ **Android nunca roda nesta máquina** (`AGENTS.md`). O agente prepara arquivos e comandos; a execução de `cap add/sync`, Gradle, ADB ou emulador fica com o usuário, em outra máquina ou em CI.
+
+- [ ] `npx cap add android` — **entregar o comando, não executar** (requer Android SDK)
+- [ ] `npx cap add ios` — **entregar o comando** (requer macOS + Xcode)
 - [ ] `.gitignore`: decidir versionar ou não `android/` e `ios/`
-- **Aceite:** app abre no emulador Android; iOS validado quando houver máquina.
+- **Aceite:** app abre no emulador Android (execução do usuário); iOS validado quando houver máquina.
 
 ### E4-04 · Empacotamento e assinatura · **G** 🔒 E4-03
 - [ ] Ícone/splash, `applicationId`, versão `versionName`/`versionCode`
