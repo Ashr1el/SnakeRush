@@ -12,6 +12,7 @@ Jogo da cobrinha feito em **React + TypeScript + Next.js (App Router)**, com ren
 - [Stack](#stack)
 - [Requisitos](#requisitos)
 - [Como rodar](#como-rodar)
+- [Deploy](#deploy)
 - [Controles](#controles)
 - [Regras e pontuação](#regras-e-pontuação)
 - [Estrutura do projeto](#estrutura-do-projeto)
@@ -62,6 +63,15 @@ npm run typecheck  # apenas o typecheck (tsc --noEmit)
 ```
 
 O `next build` falha se houver erro de TypeScript, então o build já valida os tipos.
+
+## Deploy
+
+- **Produção:** https://snake-rush-delta.vercel.app
+- Projeto na Vercel: `oc-ara/snake-rush`, conectado ao repositório do GitHub.
+- Push na branch `developer` dispara **deploy de produção** automaticamente; pushes em outras branches geram deployments de *preview*.
+- Deploy manual: `vercel deploy --prod` (CLI autenticado nesta máquina; na primeira vez, `vercel link`).
+- Não há backend: o app é 100% client-side, então o deploy publica apenas o app Next — nenhuma função serverless, banco ou variável de servidor.
+- Localmente, o `vercel link` cria `.vercel/` e um `.env.local` com `VERCEL_OIDC_TOKEN`; ambos ficam fora do Git.
 
 ## Controles
 
