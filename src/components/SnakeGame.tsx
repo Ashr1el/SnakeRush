@@ -72,6 +72,52 @@ function roundedRect(
   ctx.closePath();
 }
 
+// Padrões de matiz ao longo do corpo, todos dentro do arco-íris.
+// A cada bloco laranja coletado o desenho avança para o próximo padrão.
+interface HuePattern {
+  from: number;
+  span: number;
+}
+
+const HUE_PATTERNS: HuePattern[] = [
+  { from: 160, span: 120 }, // verde -> roxo (padrão inicial)
+  { from: 0, span: 360 }, // arco-íris completo, da cabeça para a cauda
+  { from: 300, span: -300 }, // arco-íris invertido (cabeça violeta, cauda vermelha)
+  { from: 40, span: 200 }, // âmbar -> azul
+  { from: 280, span: 200 }, // magenta -> verde
+];
+
+const WAVE_MS = 1100; // duração da onda de brilho
+const WAVE_BAND = 0.2; // largura da onda no corpo (fração do comprimento)
+
+/** Estado visual fora do modelo do jogo: onda disparada e padrão de cor atual. */
+interface DrawFx {
+  waveStart: number;
+  pattern: number;
+}
+
+function hueAt(p: HuePattern, s: number): number {
+  return ((p.from + p.span * s) % 360 + 360) % 360;
+}
+
+function hueCss(p: HuePattern, s: number, lightness: number): string {
+  return `hsl(${hueAt(p, s).toFixed(1)} 85% ${lightness}%)`;
+}
+
+/** Pontos do corpo em px, do índice 0 (cabeça) ao último (cauda), interpolado. */
+function bodyPoints(g: Game, t: number): { x: number; y: number }[] {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < g.snake.length; i++) {
+    const seg = g.snake[i];
+    const p = g.prev[i] ?? seg;
+    pts.push({
+      x: (p.x + (seg.x - p.x) * t + 0.5) * CELL,
+      y: (p.y + (seg.y - p.y) * t + 0.5) * CELL,
+    });
+  }
+  return pts;
+}
+
 function drawEyes(ctx: CanvasRenderingContext2D, x: number, y: number, dir: Dir) {
   const cx = x + CELL / 2;
   const cy = y + CELL / 2;
@@ -145,7 +191,7 @@ function drawFood(ctx: CanvasRenderingContext2D, food: Food, now: number) {
   ctx.restore();
 }
 
-function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number) {
+function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx: DrawFx) {
   // fundo com gradiente
   const bg = ctx.createLinearGradient(0, 0, W, H);
   bg.addColorStop(0, '#111a3f');
@@ -165,30 +211,79 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number) {
   // comida: vermelha (1 célula) ou laranja (bloco 2×2)
   drawFood(ctx, g.food, now);
 
-  // cobra com interpolação entre células (movimento suave)
-  const n = g.snake.length;
-  for (let i = n - 1; i >= 0; i--) {
-    const seg = g.snake[i];
-    const p = g.prev[i] ?? seg;
-    const x = (p.x + (seg.x - p.x) * t) * CELL;
-    const y = (p.y + (seg.y - p.y) * t) * CELL;
-    const k = n > 1 ? i / (n - 1) : 0;
-    const hue = 160 + k * 120; // verde -> roxo ao longo do corpo
-    const size = i === 0 ? CELL - 2 : CELL - 4;
-    const off = (CELL - size) / 2;
+  // cobra: um traçado único e contínuo — sem lacunas nem divisão entre os gomos,
+  // com cor em degradê ao longo de todo o corpo
+  const pts = bodyPoints(g, t);
+  const n = pts.length;
+  const at = (i: number) => (n > 1 ? i / (n - 1) : 0);
+  const bodyW = CELL - 4;
+  const pattern = HUE_PATTERNS[fx.pattern % HUE_PATTERNS.length];
 
-    ctx.save();
-    if (i === 0) {
-      ctx.shadowColor = `hsla(${hue}, 90%, 60%, 0.85)`;
-      ctx.shadowBlur = 16;
-    }
-    ctx.fillStyle = `hsl(${hue} 85% ${55 - k * 10}%)`;
-    roundedRect(ctx, x + off, y + off, size, size, i === 0 ? 8 : 6);
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = bodyW;
+
+  if (n === 1) {
+    ctx.fillStyle = hueCss(pattern, 0, 55);
+    ctx.beginPath();
+    ctx.arc(pts[0].x, pts[0].y, bodyW / 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
-
-    if (i === 0) drawEyes(ctx, x, y, g.dir);
+  } else {
+    // cada trecho ganha um gradiente cujas pontas coincidem com as do vizinho:
+    // a junção some e o corpo lê como uma peça só
+    for (let i = 0; i < n - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      grad.addColorStop(0, hueCss(pattern, at(i), 55 - at(i) * 10));
+      grad.addColorStop(1, hueCss(pattern, at(i + 1), 55 - at(i + 1) * 10));
+      ctx.strokeStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
   }
+  ctx.restore();
+
+  // onda de brilho: ao coletar um recurso laranja uma wave viaja da cabeça
+  // até a cauda, deixando o corpo luminoso no rastro
+  const waveAge = now - fx.waveStart;
+  if (fx.waveStart > 0 && n > 1 && waveAge >= 0 && waveAge < WAVE_MS) {
+    const crest = waveAge / WAVE_MS; // 0 na cabeça -> 1 na cauda
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = bodyW;
+    for (let i = 0; i < n - 1; i++) {
+      const s = (at(i) + at(i + 1)) / 2;
+      const d = Math.abs(s - crest);
+      if (d >= WAVE_BAND) continue;
+      const alpha = (1 - d / WAVE_BAND) ** 2;
+      const hue = hueAt(pattern, s);
+      ctx.shadowColor = `hsla(${hue}, 100%, 70%, ${alpha})`;
+      ctx.shadowBlur = 18 * alpha;
+      ctx.strokeStyle = `hsla(${hue}, 100%, 84%, ${alpha * 0.95})`;
+      ctx.beginPath();
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // cabeça: disco levemente maior sobre o corpo, brilho e olhos na direção
+  const head = pts[0];
+  ctx.save();
+  ctx.shadowColor = `hsla(${hueAt(pattern, 0)}, 90%, 60%, 0.85)`;
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = hueCss(pattern, 0, 55);
+  ctx.beginPath();
+  ctx.arc(head.x, head.y, (CELL - 2) / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawEyes(ctx, head.x - CELL / 2, head.y - CELL / 2, g.dir);
 
   // flash de morte
   if (g.deathAt) {
@@ -211,6 +306,8 @@ export default function SnakeGame() {
   const abilityRef = useRef(false);
   const abilityPipsRef = useRef(0);
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
+  // visual da cobra (fora do modelo do jogo): onda de brilho e padrão de cor
+  const fxRef = useRef<DrawFx>({ waveStart: -1, pattern: 0 });
 
   const [status, setStatus] = useState<Status>('idle');
   const [score, setScore] = useState(0);
@@ -251,7 +348,12 @@ export default function SnakeGame() {
   const onEat = useCallback(
     (newScore: number, kind: FoodKind) => {
       sfx.eat();
-      if (kind === 'special') void haptic('light');
+      if (kind === 'special') {
+        void haptic('light');
+        // recurso laranja: dispara a wave de brilho e troca o padrão de cores
+        fxRef.current.waveStart = performance.now();
+        fxRef.current.pattern = (fxRef.current.pattern + 1) % HUE_PATTERNS.length;
+      }
       setScore(newScore);
       commitBest(newScore);
     },
@@ -300,6 +402,7 @@ export default function SnakeGame() {
     sfx.start();
     gameRef.current = createGame();
     boostRef.current = false;
+    fxRef.current = { waveStart: -1, pattern: 0 };
     setBoost(false);
     chargeRef.current = 0;
     setCharge(0);
@@ -370,6 +473,7 @@ export default function SnakeGame() {
   const exitToTitle = useCallback(() => {
     gameRef.current = createGame();
     boostRef.current = false;
+    fxRef.current = { waveStart: -1, pattern: 0 };
     setBoost(false);
     chargeRef.current = 0;
     setCharge(0);
@@ -441,7 +545,7 @@ export default function SnakeGame() {
       }
 
       syncMeta(g);
-      draw(ctx, g, t, now);
+      draw(ctx, g, t, now, fxRef.current);
     };
 
     raf = requestAnimationFrame(frame);

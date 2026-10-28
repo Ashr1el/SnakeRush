@@ -11,8 +11,11 @@ export interface Food {
   cells: Cell[];
 }
 
-export const COLS = 20;
-export const ROWS = 20;
+// 20 → 27 células por lado (+35%, o inteiro mais próximo de 33%).
+// O canvas é escalado pelo CSS para caber no container, então o tabuleiro
+// mantém o mesmo tamanho na tela — só cabem mais células nele.
+export const COLS = 27;
+export const ROWS = 27;
 export const CELL = 20;
 export const W = COLS * CELL;
 export const H = ROWS * CELL;
@@ -108,10 +111,13 @@ export function placeFood(g: Game) {
 }
 
 export function createGame(): Game {
+  // centro do tabuleiro 27×27 (índice 13), expandindo o grid igualmente em todos os lados
+  const cx = Math.floor(COLS / 2);
+  const cy = Math.floor(ROWS / 2);
   const start: Cell[] = [
-    { x: 10, y: 10 },
-    { x: 9, y: 10 },
-    { x: 8, y: 10 },
+    { x: cx, y: cy },
+    { x: cx - 1, y: cy },
+    { x: cx - 2, y: cy },
   ];
   const g: Game = {
     snake: start.map((c) => ({ ...c })),

@@ -6,12 +6,14 @@ import {
   ABILITY_GROWTH_FACTOR,
   ABILITY_THRESHOLD,
   BASE_SPEED,
+  COLS,
   CUT_BONUS_PER_SEGMENT,
   GROWTH_NORMAL,
   GROWTH_SPECIAL,
   MIN_SPEED,
   POINTS_NORMAL,
   POINTS_SPECIAL,
+  ROWS,
   SPEED_STEP,
   abilityPips,
   advanceAbility,
@@ -36,8 +38,10 @@ function ahead(g: Game): Cell {
  * fazem muitas coletas seguidas (a cobra não pode bater na parede).
  */
 function resetSnake(g: Game, length = 3) {
+  const cx = Math.floor(COLS / 2);
+  const cy = Math.floor(ROWS / 2);
   g.snake = [];
-  for (let i = 0; i < length; i++) g.snake.push({ x: 10 - i, y: 10 });
+  for (let i = 0; i < length; i++) g.snake.push({ x: cx - i, y: cy });
   g.prev = g.snake.map((c) => ({ ...c }));
   g.dir = { x: 1, y: 0 };
 }
@@ -94,7 +98,7 @@ test('recurso laranja ocupa 4 células em bloco 2×2 e nunca sobre a cobra', () 
     assert.equal(ys[1] - ys[0], 1, 'linhas vizinhas');
 
     for (const c of g.food.cells) {
-      assert.ok(c.x >= 0 && c.x < 20 && c.y >= 0 && c.y < 20, 'dentro do tabuleiro');
+      assert.ok(c.x >= 0 && c.x < COLS && c.y >= 0 && c.y < ROWS, 'dentro do tabuleiro');
       assert.equal(
         g.snake.some((s) => s.x === c.x && s.y === c.y),
         false,
@@ -107,8 +111,8 @@ test('recurso laranja ocupa 4 células em bloco 2×2 e nunca sobre a cobra', () 
 test('tabuleiro apertado: laranja cai para 1 célula livre', () => {
   const g = createGame();
   g.snake = [];
-  for (let y = 0; y < 20; y++) {
-    for (let x = 0; x < 20; x++) {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
       if (y === 0 && (x === 0 || x === 2 || x === 4)) continue;
       g.snake.push({ x, y });
     }
@@ -306,7 +310,7 @@ test('colisão com o próprio corpo encerra a partida sem habilidade', () => {
 
 test('parede encerra a partida', () => {
   const g = createGame();
-  g.snake = [{ x: 19, y: 10 }];
+  g.snake = [{ x: COLS - 1, y: Math.floor(ROWS / 2) }];
   g.dir = { x: 1, y: 0 };
   g.food = { kind: 'normal', cells: [{ x: 0, y: 0 }] };
 
@@ -418,5 +422,5 @@ test('fila de direções ignora inversão de 180°', () => {
   step(g, noop, noop, noop);
 
   assert.deepEqual(g.dir, { x: 0, y: 1 }, 'a inversão é descartada e vale a próxima');
-  assert.deepEqual(g.snake[0], { x: 10, y: 11 });
+  assert.deepEqual(g.snake[0], { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) + 1 });
 });

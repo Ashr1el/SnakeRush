@@ -25,8 +25,8 @@ Snake Rush é um jogo feito em **React + TypeScript + Next.js (App Router)**, co
 
 ## Funcionalidades
 
-- Tabuleiro 20×20 células (`400×400` px lógicos) desenhado em `<canvas>` com nitidez em telas de alta densidade (DPR-aware).
-- Movimento interpolado entre células, com o corpo em gradiente de cor (verde → roxo) e olhos que seguem a direção.
+- Tabuleiro 27×27 células (`540×540` px lógicos) desenhado em `<canvas>` com nitidez em telas de alta densidade (DPR-aware) — o mesmo tamanho na tela de antes, com mais células dentro.
+- Movimento interpolado entre células e corpo desenhado como **uma peça só** (traçado contínuo, sem segmentos visíveis), com degradê de cor que percorre o corpo e olhos que seguem a direção.
 - Comida pulsante com brilho, grade sutil e fundo em gradiente.
 - Velocidade progressiva: cada recurso acelera o jogo até um limite.
 - **Turbo**: segure `Espaço` para acelerar temporariamente (fator `0.5`), com indicador visual na tela.

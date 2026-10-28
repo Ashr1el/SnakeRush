@@ -199,11 +199,12 @@ Tudo é desenhado a cada quadro, nesta ordem:
 1. **Fundo** — gradiente linear diagonal (`#111a3f` → `#161247` → `#221449`).
 2. **Grade** — pontos de `2×2` px a cada célula, com `rgba(255,255,255,0.05)`.
 3. **Recurso** — vermelho (1 célula): círculo com gradiente radial, `shadowBlur: 18` e pulso `1 + sin(now / 180) * 0.1`. Laranja (bloco 2×2): quadrados arredondados com gradiente `#fed7aa → #fb923c → #ea580c`, `shadowBlur: 20` e um núcleo claro pulsante no centro do bloco.
-4. **Cobra** — percorrida **da cauda para a cabeça** (a cabeça fica por cima). Cada segmento:
-   - posição interpolada `prev[i] → snake[i]` por `t`;
-   - matiz `hue = 160 + k * 120` (`k = i / (n - 1)`), verde na cabeça e roxo na cauda;
-   - cantos arredondados (`roundRect` nativo, com fallback via `arcTo`);
-   - cabeça levemente maior (`CELL - 2` contra `CELL - 4`), com brilho e olhos por `drawEyes`.
+4. **Cobra** — um traçado **único e contínuo** (sem lacunas nem divisão entre gomos):
+   - pontos interpolados `prev[i] → snake[i]` por `t`, do centro da cabeça à cauda;
+   - cada trecho é um `stroke` `round` de `CELL - 4` px com `createLinearGradient` cujas cores coincidem com as dos vizinhos → degradê contínuo sem emenda visível;
+   - matiz pelo padrão ativo (`HUE_PATTERNS`): `hue = from + span * s`, com `s = 0` na cabeça;
+   - cabeça como disco de raio `(CELL - 2) / 2`, com brilho e olhos por `drawEyes`;
+   - **Wave:** ao coletar um recurso laranja, uma faixa luminosa viaja da cabeça até a cauda em 1,1 s e as cores avançam para o próximo padrão de arco-íris (5 padrões, reiniciados ao iniciar/sair do jogo).
 5. **Flash de morte** — véu vermelho com alfa decaindo em 600 ms a partir de `deathAt`.
 
 O HUD, o overlay e a borda de estado do tabuleiro são HTML/CSS sobre o canvas (`position: absolute`). A borda muda de cor: **laranja** durante a habilidade, **amarela** no turbo do Espaço, neutra no resto.
@@ -241,8 +242,8 @@ Regras e ritmo em `src/game/engine.ts`; chave de persistência no componente.
 
 | Constante | Valor | Efeito |
 | --- | --- | --- |
-| `COLS` / `ROWS` | `20` / `20` | Tamanho do tabuleiro em células |
-| `CELL` | `20` | Tamanho da célula em px (canvas `400×400`) |
+| `COLS` / `ROWS` | `27` / `27` | Tamanho do tabuleiro em células (era 20×20, expandido nos dois eixos) |
+| `CELL` | `20` | Tamanho da célula em px (canvas `540×540`, escalado pelo CSS para o mesmo tamanho na tela) |
 | `BASE_SPEED` | `130` | Intervalo inicial entre passos (ms) |
 | `MIN_SPEED` | `70` | Intervalo mínimo, ou seja, velocidade máxima |
 | `SPEED_STEP` | `3` | Quanto o intervalo cai por recurso comido |

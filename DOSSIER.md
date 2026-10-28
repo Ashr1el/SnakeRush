@@ -208,8 +208,8 @@ Regras e ritmo em `src/game/engine.ts`; `BEST_KEY` fica no componente.
 
 | Constante | Valor | Efeito |
 | --- | --- | --- |
-| `COLS` / `ROWS` | `20` / `20` | Tabuleiro em células |
-| `CELL` | `20` | px por célula (canvas lógico `400×400`) |
+| `COLS` / `ROWS` | `27` / `27` | Tabuleiro em células (era 20×20; +35% mantendo o quadrado) |
+| `CELL` | `20` | px por célula (canvas lógico `540×540`, exibido no mesmo tamanho via CSS) |
 | `BASE_SPEED` | `130` | Intervalo inicial entre passos (ms) |
 | `MIN_SPEED` | `70` | Intervalo mínimo (velocidade máxima) |
 | `SPEED_STEP` | `3` | Quanto o intervalo cai por recurso |
@@ -331,11 +331,13 @@ Ordem de desenho a cada quadro:
 1. **Fundo** — gradiente linear diagonal `#111a3f → #161247 → #221449`.
 2. **Grade** — pontos `2×2` px por célula, `rgba(255,255,255,0.05)`.
 3. **Recurso** — vermelho (1 célula): círculo em gradiente radial, `shadowBlur: 18`, pulso `1 + sin(now/180) * 0.1`, cores `#ffd6e0 / #ff6b8a / #e94560`. Laranja (bloco 2×2): cada célula é um quadrado arredondado com gradiente `#fed7aa → #fb923c → #ea580c`, `shadowBlur: 20` e um núcleo claro pulsante no centro do bloco.
-4. **Cobra** — percorrida **da cauda para a cabeça** (cabeça por cima). Por segmento:
-   - posição interpolada `prev[i] → snake[i]` por `t`;
-   - matiz `hue = 160 + k * 120` (`k = i / (n-1)`): verde na cabeça, roxo na cauda, luminosidade caindo;
-   - cantos arredondados (`roundRect` nativo com fallback `arcTo`);
-   - cabeça maior (`CELL - 2` vs `CELL - 4`), com brilho e olhos via `drawEyes` orientados pela direção.
+4. **Cobra** — um traçado **único e contínuo**: sem lacunas e sem divisão entre os gomos.
+   - pontos interpolados `prev[i] → snake[i]` por `t`, do centro da cabeça até a cauda (centro de célula: `(coord + 0.5) * CELL`);
+   - cada trecho é um `stroke` com `lineCap`/`lineJoin` `round` e `lineWidth = CELL - 4`, preenchido por um `createLinearGradient` cujas cores coincidem com as dos trechos vizinhos — a junção some e o corpo lê como uma peça só;
+   - matiz pelo padrão ativo em `HUE_PATTERNS`: `hue = from + span * s` (`s = i / (n-1)`, 0 na cabeça), luminosidade `55 - s * 10`;
+   - cabeça: disco de raio `(CELL - 2) / 2` com brilho e olhos por `drawEyes` orientados pela direção;
+   - **Wave + troca de padrão:** ao coletar um recurso laranja (`onEat`, `kind === 'special'`) o estado visual avança: `fxRef.waveStart = performance.now()` dispara uma faixa luminosa que viaja da cabeça até a cauda em `1100 ms` (`WAVE_BAND = 0,2` do comprimento, alfa quadrático e `shadowBlur`), e `fxRef.pattern` passa para o próximo padrão de arco-íris (5 no total: verde→roxo, arco-íris completo, invertido, âmbar→azul, magenta→verde). Reiniciado em `start()` e `exitToTitle()`.
+   - `fxRef` guarda o estado visual fora do modelo `Game`, então os testes do núcleo não o afetam.
 5. **Flash de morte** — véu vermelho com alfa decaindo em 600 ms a partir de `deathAt`.
 
 HUD, overlays e o indicador de turbo são **HTML/CSS** sobre o canvas (`position: absolute`), não fazem parte do desenho.
