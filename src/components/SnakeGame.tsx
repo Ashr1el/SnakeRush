@@ -6,6 +6,7 @@ import {
   ABILITY_THRESHOLD,
   CELL,
   COLS,
+  DIRS,
   H,
   ROWS,
   W,
@@ -26,27 +27,27 @@ type Status = 'idle' | 'running' | 'paused' | 'over';
 
 const BEST_KEY = 'snakeBest';
 
-const UP: Dir = { x: 0, y: -1 };
-const DOWN: Dir = { x: 0, y: 1 };
-const LEFT: Dir = { x: -1, y: 0 };
-const RIGHT: Dir = { x: 1, y: 0 };
-
 const KEY_MAP: Record<string, Dir> = {
-  ArrowUp: UP,
-  ArrowDown: DOWN,
-  ArrowLeft: LEFT,
-  ArrowRight: RIGHT,
-  w: UP,
-  W: UP,
-  s: DOWN,
-  S: DOWN,
-  a: LEFT,
-  A: LEFT,
-  d: RIGHT,
-  D: RIGHT,
+  ArrowUp: DIRS.UP,
+  ArrowDown: DIRS.DOWN,
+  ArrowLeft: DIRS.LEFT,
+  ArrowRight: DIRS.RIGHT,
+  w: DIRS.UP,
+  W: DIRS.UP,
+  s: DIRS.DOWN,
+  S: DIRS.DOWN,
+  a: DIRS.LEFT,
+  A: DIRS.LEFT,
+  d: DIRS.RIGHT,
+  D: DIRS.RIGHT,
 };
 
-const BTN_MAP: Record<string, Dir> = { up: UP, down: DOWN, left: LEFT, right: RIGHT };
+const BTN_MAP: Record<string, Dir> = {
+  up: DIRS.UP,
+  down: DIRS.DOWN,
+  left: DIRS.LEFT,
+  right: DIRS.RIGHT,
+};
 
 function roundedRect(
   ctx: CanvasRenderingContext2D,
@@ -90,6 +91,11 @@ const HUE_PATTERNS: HuePattern[] = [
 const WAVE_MS = 1100; // duração da onda de brilho
 const WAVE_BAND = 0.2; // largura da onda no corpo (fração do comprimento)
 
+// Efeitos de fogo: chamas vermelhas no turbo, azuis na habilidade.
+const TURBO_FLAME_HUE = 12; // vermelho-alaranjado
+const ABILITY_FLAME_HUE = 205; // azul
+const ABILITY_BODY_HUE = 210; // durante a habilidade o corpo fica azul (210 → 240)
+
 /** Estado visual fora do modelo do jogo: onda disparada e padrão de cor atual. */
 interface DrawFx {
   waveStart: number;
@@ -100,9 +106,6 @@ function hueAt(p: HuePattern, s: number): number {
   return ((p.from + p.span * s) % 360 + 360) % 360;
 }
 
-function hueCss(p: HuePattern, s: number, lightness: number): string {
-  return `hsl(${hueAt(p, s).toFixed(1)} 85% ${lightness}%)`;
-}
 
 /** Pontos do corpo em px, do índice 0 (cabeça) ao último (cauda), interpolado. */
 function bodyPoints(g: Game, t: number): { x: number; y: number }[] {
@@ -191,7 +194,121 @@ function drawFood(ctx: CanvasRenderingContext2D, food: Food, now: number) {
   ctx.restore();
 }
 
-function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx: DrawFx) {
+/**
+ * Aura da chama ao redor do corpo — desenhada antes do corpo, para o degradê
+ * da cobra continuar nítido e só o halo aparecer nas bordas.
+ * `hue` 12 = turbo (vermelho); `hue` 205 = habilidade (azul).
+ */
+function drawFlameAura(
+  ctx: CanvasRenderingContext2D,
+  pts: { x: number; y: number }[],
+  now: number,
+  hue: number,
+  bodyW: number
+) {
+  if (pts.length < 2) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = bodyW + 8;
+  ctx.strokeStyle = `hsla(${hue}, 100%, 55%, 0.32)`;
+  ctx.shadowColor = `hsla(${hue}, 100%, 55%, 0.9)`;
+  ctx.shadowBlur = 16 + Math.sin(now / 80) * 5;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Línguas de fogo: uma por gomo, saindo da borda em lados alternados, com
+ * comprimento e opacidade tremulando a cada quadro.
+ */
+function drawFlameTongues(
+  ctx: CanvasRenderingContext2D,
+  pts: { x: number; y: number }[],
+  dir: Dir,
+  now: number,
+  hue: number,
+  bodyW: number
+) {
+  const n = pts.length;
+  if (!n) return;
+  const r = bodyW / 2;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (let i = 0; i < n; i++) {
+    const c = pts[i];
+    // direção para a frente (em direção à cabeça), normalizada
+    let ux: number;
+    let uy: number;
+    if (n === 1) {
+      ux = dir.x;
+      uy = dir.y;
+    } else if (i > 0) {
+      ux = pts[i - 1].x - c.x;
+      uy = pts[i - 1].y - c.y;
+    } else {
+      ux = c.x - pts[1].x;
+      uy = c.y - pts[1].y;
+    }
+    const mag = Math.hypot(ux, uy);
+    if (mag < 0.01) continue;
+    ux /= mag;
+    uy /= mag;
+
+    const side = i % 2 === 0 ? 1 : -1;
+    const px = -uy * side;
+    const py = ux * side;
+
+    const flick = 0.5 + 0.5 * Math.sin(now / 55 + i * 1.7);
+    const reach = r * (0.4 + 0.5 * flick);
+    const half = r * 0.55;
+
+    const bx = c.x + px * r * 0.85; // base um pouco dentro do corpo: sem emenda
+    const by = c.y + py * r * 0.85;
+    const tx = bx + px * reach - ux * reach * 0.45; // ponta levemente tracionada para trás
+    const ty = by + py * reach - uy * reach * 0.45;
+
+    const a = 0.5 + 0.5 * flick;
+    const grad = ctx.createLinearGradient(bx, by, tx, ty);
+    grad.addColorStop(0, `hsla(${hue}, 100%, 80%, ${0.9 * a})`);
+    grad.addColorStop(0.55, `hsla(${hue}, 100%, 62%, ${0.6 * a})`);
+    grad.addColorStop(1, `hsla(${hue}, 100%, 55%, 0)`);
+
+    const b1x = bx + ux * half;
+    const b1y = by + uy * half;
+    const b2x = bx - ux * half;
+    const b2y = by - uy * half;
+    const c1x = (b1x + tx) / 2 + ux * half * 0.6;
+    const c1y = (b1y + ty) / 2 + uy * half * 0.6;
+    const c2x = (b2x + tx) / 2 + ux * half * 0.6;
+    const c2y = (b2y + ty) / 2 + uy * half * 0.6;
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(b1x, b1y);
+    ctx.quadraticCurveTo(c1x, c1y, tx, ty);
+    ctx.quadraticCurveTo(c2x, c2y, b2x, b2y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function draw(
+  ctx: CanvasRenderingContext2D,
+  g: Game,
+  t: number,
+  now: number,
+  fx: DrawFx,
+  boost: boolean
+) {
   // fundo com gradiente
   const bg = ctx.createLinearGradient(0, 0, W, H);
   bg.addColorStop(0, '#111a3f');
@@ -218,6 +335,17 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx
   const at = (i: number) => (n > 1 ? i / (n - 1) : 0);
   const bodyW = CELL - 4;
   const pattern = HUE_PATTERNS[fx.pattern % HUE_PATTERNS.length];
+  // durante a habilidade o corpo inteiro fica azul; fora dela, o degradê do padrão
+  const ability = g.isAbilityActive;
+  const bodyHue = (s: number) =>
+    ability ? ABILITY_BODY_HUE + 30 * s : hueAt(pattern, s);
+  const bodyCss = (s: number, lightness: number) =>
+    `hsl(${bodyHue(s).toFixed(1)} 85% ${lightness}%)`;
+  // chamas: vermelhas no turbo, azuis na habilidade (a habilidade tem prioridade)
+  const onFire = boost || ability;
+  const flameHue = ability ? ABILITY_FLAME_HUE : TURBO_FLAME_HUE;
+
+  if (onFire) drawFlameAura(ctx, pts, now, flameHue, bodyW);
 
   ctx.save();
   ctx.lineCap = 'round';
@@ -225,7 +353,7 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx
   ctx.lineWidth = bodyW;
 
   if (n === 1) {
-    ctx.fillStyle = hueCss(pattern, 0, 55);
+    ctx.fillStyle = bodyCss(0, 55);
     ctx.beginPath();
     ctx.arc(pts[0].x, pts[0].y, bodyW / 2, 0, Math.PI * 2);
     ctx.fill();
@@ -236,8 +364,8 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx
       const a = pts[i];
       const b = pts[i + 1];
       const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-      grad.addColorStop(0, hueCss(pattern, at(i), 55 - at(i) * 10));
-      grad.addColorStop(1, hueCss(pattern, at(i + 1), 55 - at(i + 1) * 10));
+      grad.addColorStop(0, bodyCss(at(i), 55 - at(i) * 10));
+      grad.addColorStop(1, bodyCss(at(i + 1), 55 - at(i + 1) * 10));
       ctx.strokeStyle = grad;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
@@ -246,6 +374,8 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx
     }
   }
   ctx.restore();
+
+  if (onFire) drawFlameTongues(ctx, pts, g.dir, now, flameHue, bodyW);
 
   // onda de brilho: ao coletar um recurso laranja uma wave viaja da cabeça
   // até a cauda, deixando o corpo luminoso no rastro
@@ -261,7 +391,7 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx
       const d = Math.abs(s - crest);
       if (d >= WAVE_BAND) continue;
       const alpha = (1 - d / WAVE_BAND) ** 2;
-      const hue = hueAt(pattern, s);
+      const hue = bodyHue(s);
       ctx.shadowColor = `hsla(${hue}, 100%, 70%, ${alpha})`;
       ctx.shadowBlur = 18 * alpha;
       ctx.strokeStyle = `hsla(${hue}, 100%, 84%, ${alpha * 0.95})`;
@@ -276,9 +406,9 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, t: number, now: number, fx
   // cabeça: disco levemente maior sobre o corpo, brilho e olhos na direção
   const head = pts[0];
   ctx.save();
-  ctx.shadowColor = `hsla(${hueAt(pattern, 0)}, 90%, 60%, 0.85)`;
+  ctx.shadowColor = `hsla(${bodyHue(0).toFixed(1)}, 90%, 60%, 0.85)`;
   ctx.shadowBlur = 16;
-  ctx.fillStyle = hueCss(pattern, 0, 55);
+  ctx.fillStyle = bodyCss(0, 55);
   ctx.beginPath();
   ctx.arc(head.x, head.y, (CELL - 2) / 2, 0, Math.PI * 2);
   ctx.fill();
@@ -398,8 +528,9 @@ export default function SnakeGame() {
     }
   }, []);
 
-  const start = useCallback(() => {
-    sfx.start();
+  // reinicia modelo, visual e contadores do HUD — o início da partida e a volta
+  // ao título compartilham exatamente o mesmo reset
+  const resetGame = useCallback(() => {
     gameRef.current = createGame();
     boostRef.current = false;
     fxRef.current = { waveStart: -1, pattern: 0 };
@@ -413,9 +544,14 @@ export default function SnakeGame() {
     abilityPipsRef.current = 0;
     setAbilityPips(0);
     setScore(0);
+  }, []);
+
+  const start = useCallback(() => {
+    sfx.start();
+    resetGame();
     statusRef.current = 'running';
     setStatus('running');
-  }, []);
+  }, [resetGame]);
 
   const enqueue = useCallback((d: Dir) => {
     if (statusRef.current !== 'running') return;
@@ -426,11 +562,12 @@ export default function SnakeGame() {
     if (g.queue.length < 2) g.queue.push(d);
   }, []);
 
-  // turbo pelo botão na tela (press-and-hold), mesmo caminho do Espaço
-  const setBoostHeld = useCallback((on: boolean) => {
-    if (on && statusRef.current !== 'running') return;
-    boostRef.current = on;
-    setBoost(on);
+  // turbo (Espaço ou botão na tela): alterna entre velocidade normal e turbo
+  const toggleBoost = useCallback(() => {
+    const next = !boostRef.current;
+    if (next && statusRef.current !== 'running') return;
+    boostRef.current = next;
+    setBoost(next);
   }, []);
 
   // swipe no tabuleiro: um arrasto curto equivale a uma seta
@@ -448,8 +585,8 @@ export default function SnakeGame() {
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
       if (Math.hypot(dx, dy) < 24) return;
-      if (Math.abs(dx) > Math.abs(dy)) enqueue(dx > 0 ? RIGHT : LEFT);
-      else enqueue(dy > 0 ? DOWN : UP);
+      if (Math.abs(dx) > Math.abs(dy)) enqueue(dx > 0 ? DIRS.RIGHT : DIRS.LEFT);
+      else enqueue(dy > 0 ? DIRS.DOWN : DIRS.UP);
     },
     [enqueue]
   );
@@ -471,23 +608,11 @@ export default function SnakeGame() {
   }, []);
 
   const exitToTitle = useCallback(() => {
-    gameRef.current = createGame();
-    boostRef.current = false;
-    fxRef.current = { waveStart: -1, pattern: 0 };
-    setBoost(false);
-    chargeRef.current = 0;
-    setCharge(0);
-    redChargeRef.current = 0;
-    setRedCharge(0);
-    abilityRef.current = false;
-    setAbility(false);
-    abilityPipsRef.current = 0;
-    setAbilityPips(0);
-    setScore(0);
+    resetGame();
     statusRef.current = 'idle';
     setStatus('idle');
     sfx.click();
-  }, []);
+  }, [resetGame]);
 
   const toggleMute = useCallback(() => {
     const next = sfx.toggleMuted();
@@ -545,14 +670,14 @@ export default function SnakeGame() {
       }
 
       syncMeta(g);
-      draw(ctx, g, t, now, fxRef.current);
+      draw(ctx, g, t, now, fxRef.current, boostRef.current);
     };
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
   }, [onEat, onCut, onAbility, syncMeta]);
 
-  // teclado: setas/WASD movem, barra de espaço dá turbo (ou inicia/reinicia)
+  // teclado: setas/WASD movem, barra de espaço alterna o turbo (ou inicia/reinicia)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Escape') {
@@ -571,10 +696,7 @@ export default function SnakeGame() {
           start();
           return;
         }
-        if (!e.repeat) {
-          boostRef.current = true;
-          setBoost(true);
-        }
+        if (!e.repeat) toggleBoost();
         return;
       }
       const d = KEY_MAP[e.key];
@@ -582,26 +704,18 @@ export default function SnakeGame() {
       e.preventDefault();
       enqueue(d);
     };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        boostRef.current = false;
-        setBoost(false);
-      }
-    };
     const onBlur = () => {
       boostRef.current = false;
       setBoost(false);
     };
 
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
-  }, [start, enqueue, pause, resume]);
+  }, [start, enqueue, pause, resume, toggleBoost]);
 
   const newRecord = status === 'over' && score > 0 && score >= best;
   // durante a habilidade a barra esvazia (contagem regressiva); fora dela mostra a carga
@@ -690,7 +804,7 @@ export default function SnakeGame() {
                     </button>
                   </div>
                   <p className="hint">
-                    <kbd>Esc</kbd> pausa e retoma · <kbd>Espaço</kbd> turbo
+                    <kbd>Esc</kbd> pausa e retoma · <kbd>Espaço</kbd> alterna o turbo
                   </p>
                 </>
               ) : (
@@ -698,8 +812,8 @@ export default function SnakeGame() {
                   <h2>{status === 'idle' ? 'Snake Rush' : 'Fim de Jogo'}</h2>
                   {status === 'idle' ? (
                     <p>
-                      Setas ou WASD para mover. Segure a barra de espaço para acelerar. A cada 5
-                      recursos surge um bloco laranja: coma 5 para ativar a habilidade.
+                      Setas ou WASD para mover. Aperte a barra de espaço para alternar o turbo.
+                      A cada 5 recursos surge um bloco laranja: coma 5 para ativar a habilidade.
                     </p>
                   ) : (
                     <p>
@@ -711,7 +825,7 @@ export default function SnakeGame() {
                     {status === 'idle' ? 'Iniciar' : 'Jogar novamente'}
                   </button>
                   <p className="hint">
-                    Dica: <kbd>Espaço</kbd> ativa o turbo, <kbd>Esc</kbd> pausa o jogo.
+                    Dica: <kbd>Espaço</kbd> alterna o turbo, <kbd>Esc</kbd> pausa o jogo.
                   </p>
                 </>
               )}
@@ -765,26 +879,26 @@ export default function SnakeGame() {
 
       <button
         className={`turbo-btn${boost ? ' on' : ''}`}
-        aria-label="Turbo: segure para acelerar"
-        onPointerDown={(e) => {
+        aria-label={boost ? 'Turbo: desligar' : 'Turbo: ligar'}
+        aria-pressed={boost}
+        onClick={(e) => {
           e.preventDefault();
-          setBoostHeld(true);
+          e.currentTarget.blur();
+          toggleBoost();
         }}
-        onPointerUp={() => setBoostHeld(false)}
-        onPointerCancel={() => setBoostHeld(false)}
-        onPointerLeave={() => setBoostHeld(false)}
         onContextMenu={(e) => e.preventDefault()}
       >
-        ⚡ Segure para turbo
+        ⚡ Turbo: {boost ? 'turbo' : 'normal'}
       </button>
 
       <p className="info">
-        Controles: setas do teclado, <kbd>WASD</kbd>, os botões abaixo ou um arrasto no tabuleiro.
-        Segure <kbd>Espaço</kbd> (ou o botão de turbo) para acelerar e <kbd>Esc</kbd> para pausar.
-        A cada 5 recursos vermelhos nasce um bloco laranja de 4 células (40 pts e +3 gomos) — a cada 5
-        blocos a habilidade ativa por 4 s: turbo, corte do próprio corpo (20 pts por gomo) e
-        crescimento 3× ao comer. Fora da habilidade, encostar na parede ou no corpo encerra a
-        partida.
+        Controles: setas do teclado, <kbd>WASD</kbd>, os botões abaixo ou um arrasto no
+        tabuleiro. Aperte <kbd>Espaço</kbd> ou toque no botão de turbo para alternar entre
+        velocidade normal e turbo, e <kbd>Esc</kbd> para pausar. A cada 5 recursos vermelhos
+        nasce um bloco laranja de 4 células (40 pts e
+        +3 gomos) — a cada 5 blocos a habilidade ativa por 4 s: turbo, corte do próprio corpo
+        (20 pts por gomo) e crescimento 3× ao comer. Fora da habilidade, encostar na parede ou
+        no corpo encerra a partida.
       </p>
     </div>
   );

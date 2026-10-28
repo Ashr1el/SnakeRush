@@ -180,12 +180,12 @@ Cada transição dispara seu efeito sonoro (`sfx.start`, `sfx.pause`, `sfx.die`,
 | Entrada | Tratamento |
 | --- | --- |
 | Setas / `W A S D` (maiúsc. e minúsc.) | `KEY_MAP` → `enqueue(dir)` |
-| `Espaço` | `paused` → `resume`; fora de `running` → `start`; se `running` e não repetido → liga o turbo |
-| Soltar `Espaço` | desliga o turbo |
+| `Espaço` | `paused` → `resume`; fora de `running` → `start`; se `running` e não repetido → alterna o turbo |
+| Soltar `Espaço` | sem efeito: o turbo é um estado alternado no `keydown` |
 | `Esc` | `running` → `pause`; `paused` → `resume` |
 | `blur` da janela | desliga o turbo |
 | D-pad na tela | `blur()` no botão + `enqueue(dir)` |
-| Botão **⚡ Segure para turbo** | `pointerdown` liga; `pointerup`/`pointercancel`/`pointerleave` desligam |
+| Botão **⚡ Turbo** | `click` alterna (`toggleBoost`): liga só com status `running`; `blur()` no botão evita reação do `Espaço` |
 | Arrasto no tabuleiro | acima de 24 px vale o eixo dominante; abaixo disso é tratado como toque |
 
 `enqueue` só aceita comandos com status `running`, ignora a inversão de 180°, ignora repetição da última direção e mantém no máximo 2 itens na fila.
@@ -205,6 +205,7 @@ Tudo é desenhado a cada quadro, nesta ordem:
    - matiz pelo padrão ativo (`HUE_PATTERNS`): `hue = from + span * s`, com `s = 0` na cabeça;
    - cabeça como disco de raio `(CELL - 2) / 2`, com brilho e olhos por `drawEyes`;
    - **Wave:** ao coletar um recurso laranja, uma faixa luminosa viaja da cabeça até a cauda em 1,1 s e as cores avançam para o próximo padrão de arco-íris (5 padrões, reiniciados ao iniciar/sair do jogo).
+   - **Chamas:** turbo → chamas **vermelhas**; habilidade → chamas **azuis** e corpo inteiro azul (volta ao padrão ao expirar), com a habilidade tendo prioridade. `drawFlameAura` (antes do corpo) pinta o halo e `drawFlameTongues` (depois) desenha uma língua por gomo em lados alternados, tremulando pelo `now`, em `lighter`.
 5. **Flash de morte** — véu vermelho com alfa decaindo em 600 ms a partir de `deathAt`.
 
 O HUD, o overlay e a borda de estado do tabuleiro são HTML/CSS sobre o canvas (`position: absolute`). A borda muda de cor: **laranja** durante a habilidade, **amarela** no turbo do Espaço, neutra no resto.

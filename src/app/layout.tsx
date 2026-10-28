@@ -6,7 +6,8 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Snake Rush',
   description:
-    'Snake Rush em React e Next.js: movimento suave no canvas, turbo, pausa e efeitos sonoros sintetizados.',
+    'Snake Rush em React e Next.js: movimento suave no canvas, turbo, ' +
+    'pausa e efeitos sonoros sintetizados.',
   applicationName: 'Snake Rush',
   appleWebApp: {
     capable: true,

@@ -320,7 +320,7 @@ kbd {
   transform: translateY(1px) scale(0.95);
 }
 
-/* botão de turbo para toque (press-and-hold) */
+/* botão de turbo: alterna entre velocidade normal e turbo */
 .turbo-btn {
   align-self: center;
   min-width: 190px;

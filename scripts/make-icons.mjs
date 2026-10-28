@@ -59,7 +59,17 @@ const hsl = (h, s, l, a = 1) => {
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = l - c / 2;
   const [r, g, b] =
-    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    h < 60
+      ? [c, x, 0]
+      : h < 120
+      ? [x, c, 0]
+      : h < 180
+      ? [0, c, x]
+      : h < 240
+      ? [0, x, c]
+      : h < 300
+      ? [x, 0, c]
+      : [c, 0, x];
   return [(r + m) * 255, (g + m) * 255, (b + m) * 255, a * 255];
 };
 
@@ -169,7 +179,15 @@ function drawIcon(size, { bleed = false, content = 1 } = {}) {
   ];
   for (const s of segments) {
     const [cx, cy] = P(s.x, s.y);
-    fillRoundRect(canvas, cx - block / 2, cy - block / 2, block, block, radius, hsl(s.hue, 0.72, 0.52));
+    fillRoundRect(
+      canvas,
+      cx - block / 2,
+      cy - block / 2,
+      block,
+      block,
+      radius,
+      hsl(s.hue, 0.72, 0.52)
+    );
   }
 
   // cabeça (por cima, à direita)

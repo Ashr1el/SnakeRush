@@ -146,11 +146,10 @@ function growthFor(g: Game): number {
   return g.isAbilityActive ? base * ABILITY_GROWTH_FACTOR : base;
 }
 
-/** Duplica a cauda até a cobra ter crescido `growth` gomos. */
-function growSnake(snake: Cell[], growth: number): Cell[] {
+/** Anexa à cauda os `growth - 1` gomos extras (a cabeça já conta como o primeiro). */
+function growSnake(snake: Cell[], growth: number): void {
   const tail = snake[snake.length - 1];
   for (let i = 1; i < growth; i++) snake.push({ ...tail });
-  return snake;
 }
 
 /** Liga a habilidade quando a barra está cheia (e ela não está ativa). */
@@ -231,7 +230,8 @@ export function step(
   }
 
   const kind = g.food.kind;
-  g.snake = growSnake([head, ...g.snake], growthFor(g));
+  g.snake = [head, ...g.snake];
+  growSnake(g.snake, growthFor(g));
   g.score += kind === 'special' ? POINTS_SPECIAL : POINTS_NORMAL;
   g.speed = Math.max(MIN_SPEED, g.speed - SPEED_STEP);
 

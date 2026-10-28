@@ -29,12 +29,13 @@ Snake Rush é um jogo feito em **React + TypeScript + Next.js (App Router)**, co
 - Movimento interpolado entre células e corpo desenhado como **uma peça só** (traçado contínuo, sem segmentos visíveis), com degradê de cor que percorre o corpo e olhos que seguem a direção.
 - Comida pulsante com brilho, grade sutil e fundo em gradiente.
 - Velocidade progressiva: cada recurso acelera o jogo até um limite.
-- **Turbo**: segure `Espaço` para acelerar temporariamente (fator `0.5`), com indicador visual na tela.
+- **Turbo**: `Espaço` ou o botão **⚡ Turbo** alternam a velocidade turbo (fator `0.5`), com indicador visual na tela.
 - Máquina de estados completa: título → jogando → pausado → fim de jogo, com overlays e opções de resumir, resetar ou sair.
 - Efeitos sonoros sintetizados com Web Audio API (comer, morrer, iniciar, pausar, clicar) e botão de mudo persistido.
 - Recorde salvo no `localStorage`.
 - **Recursos:** a cada 6 recursos, 5 são vermelhos (1 célula, 10 pts, +1 gomo) e 1 é laranja (bloco 2×2, 40 pts, +3 gomos).
 - **Habilidade especial:** 5 blocos laranja ativam 4 s de turbo com auto-corte (20 pts por gomo) e crescimento 3× ao comer.
+- **Chamas:** o turbo acende chamas **vermelhas** na cobra; a habilidade acende chamas **azuis** e deixa o corpo inteiro azul enquanto o efeito durar.
 - Layout responsivo (desktop e mobile) com d-pad na tela, swipe no tabuleiro e botão de turbo.
 - **PWA instalável** com funcionamento offline (manifest, ícones e service worker próprios, sem dependências).
 - Metadados de página (`title`, `description`, `lang="pt-BR"`, `themeColor`) via Metadata API do Next.
@@ -86,12 +87,12 @@ O `next build` falha se houver erro de TypeScript, então o build já valida os 
 | --- | --- | --- |
 | Mover | Setas ou `W` `A` `S` `D` | d-pad (↑ ← ↓ →) ou swipe no tabuleiro |
 | Iniciar / jogar novamente | `Espaço` ou botão | botão **Iniciar** |
-| Turbo (acelerar) | segurar `Espaço` durante o jogo | segurar **⚡ Segure para turbo** |
+| Turbo (acelerar) | `Espaço` (alterna) | botão **⚡ Turbo** (alterna normal/turbo) |
 | Pausar / retomar | `Esc` | menu de pausa |
 | Resumir / Reiniciar / Sair | — | botões do menu de pausa |
 | Ativar/desativar som | botão 🔇/🔊 | — |
 
-Ao soltar `Espaço` ou perder o foco da janela, o turbo é desligado automaticamente.
+Perder o foco da janela desliga o turbo automaticamente.
 
 ## Regras e pontuação
 

@@ -308,19 +308,19 @@ Cleanup: `cancelAnimationFrame` no unmount.
 | --- | --- | --- |
 | Mover | Setas ou `W A S D` (maiúsc./minúsc.) | d-pad (↑ ← ↓ →) ou arrasto (swipe) no tabuleiro |
 | Iniciar / jogar novamente | `Espaço` | botão **Iniciar** |
-| Turbo (acelerar) | segurar `Espaço` durante o jogo | segurar o botão **⚡ Segure para turbo** |
+| Turbo (acelerar) | `Espaço` (alterna) | botão **⚡ Turbo** (alterna normal/turbo) |
 | Pausar / retomar | `Esc` | menu de pausa |
 | Resumir / Reiniciar / Sair | — | botões do menu de pausa |
 | Ativar/desativar som | — | botão 🔇/🔊 |
 
 Regras de entrada:
 
-- `Espaço`: em `paused` → `resume`; fora de `running` → `start`; em `running` (sem auto-repeat) → liga o turbo.
-- Soltar `Espaço` **ou** `blur` da janela → turbo desligado (evita seguir acelerado em outra aba).
+- `Espaço`: em `paused` → `resume`; fora de `running` → `start`; em `running` (sem auto-repeat) → alterna o turbo (`toggleBoost`).
+- `blur` da janela → turbo desligado (evita seguir acelerado em outra aba); soltar `Espaço` não tem efeito, o turbo é um estado alternado.
 - `enqueue` só aceita comandos com status `running`, ignora inversão de 180°, ignora repetição da última direção e mantém no máximo **2** itens na fila.
 - D-pad chama `blur()` no botão antes de enfileirar (evita reacionar `Espaço`/`Enter`).
 - **Swipe:** `touchstart` guarda o ponto inicial e `touchend` compara o deslocamento; abaixo de 24 px é toque (ignorado), acima disso vale o eixo dominante.
-- **Turbo no toque:** `pointerdown` liga e `pointerup`/`pointercancel`/`pointerleave` desligam; `touch-action: none` impede rolagem acidental.
+- **Turbo por `Espaço` ou toque:** ambos chamam `toggleBoost`, que alterna entre velocidade normal e turbo (só liga com status `running`); o botão faz `blur()` no próprio clique para o `Espaço` não reagir em cima dele, e `touch-action: none` impede rolagem acidental.
 
 ---
 
@@ -338,6 +338,7 @@ Ordem de desenho a cada quadro:
    - cabeça: disco de raio `(CELL - 2) / 2` com brilho e olhos por `drawEyes` orientados pela direção;
    - **Wave + troca de padrão:** ao coletar um recurso laranja (`onEat`, `kind === 'special'`) o estado visual avança: `fxRef.waveStart = performance.now()` dispara uma faixa luminosa que viaja da cabeça até a cauda em `1100 ms` (`WAVE_BAND = 0,2` do comprimento, alfa quadrático e `shadowBlur`), e `fxRef.pattern` passa para o próximo padrão de arco-íris (5 no total: verde→roxo, arco-íris completo, invertido, âmbar→azul, magenta→verde). Reiniciado em `start()` e `exitToTitle()`.
    - `fxRef` guarda o estado visual fora do modelo `Game`, então os testes do núcleo não o afetam.
+   - **Chamas:** turbo ligado → halo + línguas de fogo **vermelhas** (`TURBO_FLAME_HUE = 12`); habilidade ativa → chamas **azuis** (`ABILITY_FLAME_HUE = 205`) e o corpo inteiro azul (`ABILITY_BODY_HUE` 210 → 240 da cabeça à cauda), voltando ao padrão quando o efeito expira. A habilidade tem prioridade sobre o turbo. A aura (`drawFlameAura`) é desenhada antes do corpo, para o degradê ficar nítido, e as línguas (`drawFlameTongues`) depois — uma por gomo, saindo em lados alternados, com alcance e alfa tremulando pelo `now`; tudo em `globalCompositeOperation = 'lighter'`.
 5. **Flash de morte** — véu vermelho com alfa decaindo em 600 ms a partir de `deathAt`.
 
 HUD, overlays e o indicador de turbo são **HTML/CSS** sobre o canvas (`position: absolute`), não fazem parte do desenho.
